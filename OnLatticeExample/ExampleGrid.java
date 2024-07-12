@@ -107,6 +107,7 @@ public class ExampleGrid extends AgentGrid2D<ExampleCell>
             if (model.Pop() == 0)
             {
                 model.NewAgentSQ(model.xDim/2, model.yDim/2).Init();
+                (ExampleGrid.count)++;
             }
             model.StepCells(dieProb, divProb);  //run the StepCells method
             model.DrawModel(win);   //run the DrawModel method
