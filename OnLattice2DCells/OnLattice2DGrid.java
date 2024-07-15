@@ -9,23 +9,28 @@ import HAL.Util;
 
 //Author: Hannah Simon, HTiigee on Git
 
+abstract class CellTypes
+{
+
+}
+
 abstract class Lymphocytes extends AgentSQ2Dunstackable<OnLattice2DCells.OnLattice2DGrid> implements Cells
 {
     public static String name = "Lympocyte Cells";
+    public static double tumorGrowthRate = 0.217;
     public static double dieProb = 0.1;
-    public static double divProb = 0.2;
-    public static int colorIndex = 2;
-    public static int count = 1;
+    public static double divProb = tumorGrowthRate;
+    public static int color; //get rid of this
+    public static int colorIndex = 0;
+    public int count = 1;
 
-    public void Init(int colorIndex)
+    public void method()
     {
-
+        count = 2;
     }
 
-    public void StepCell(double dieProb, double divProb)
-    {
-
-    }
+    //Lymphocytes.Pop = 2;
+    //count = (int) Math.exp(2);
 }
 
 abstract class tumorCells extends AgentSQ2Dunstackable<OnLattice2DCells.OnLattice2DGrid> implements Cells
@@ -33,7 +38,8 @@ abstract class tumorCells extends AgentSQ2Dunstackable<OnLattice2DCells.OnLattic
     public static String name = "Tumor Cells";
     public static double dieProb = 0.1;
     public static double divProb = 0.2;
-    public static int colorIndex = 1;
+    public static int color;
+    public static int colorIndex = 3;
     public static int count = 1;
 }
 
@@ -42,8 +48,9 @@ abstract class doomedCells extends AgentSQ2Dunstackable<OnLattice2DCells.OnLatti
     public static String name = "Doomed Cells";
     public static double dieProb = 0.1;
     public static double divProb = 0.2;
-    public static int colorIndex = 10;
-    public static int count = 1;
+    public static int color;
+    public static int colorIndex = 1;
+    private static int count = 1;
 }
 
 class cellFunctions extends AgentSQ2Dunstackable<OnLattice2DCells.OnLattice2DGrid>
@@ -55,23 +62,22 @@ class cellFunctions extends AgentSQ2Dunstackable<OnLattice2DCells.OnLattice2DGri
         this.color = Util.CategorialColor(colorIndex);
     }
 
-    public void StepCell(double dieProb, double divProb, int colorIndex, int count)
+    public void StepCell(double dieProb, double divProb, int colorIndex)
     {
         if (G.rng.Double() < dieProb)
         {
-            //cell will die
             Dispose();
-            count--;
+            //(Lymphocytes.count)--;
+            this.method();
         }
 
         if (G.rng.Double() < divProb)
         {
-            //cell will divide if space is available
             int options = MapEmptyHood(G.divHood);
             if (options > 0)
             {
                 G.NewAgentSQ(G.divHood[G.rng.Int(options)]).Init(colorIndex); //creates a new agent in a random  location in the neighborhood around the cell
-                count++;
+                (Lymphocytes.count)++;
             }
 
         }
@@ -88,12 +94,12 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.cellFunctions>
         super(x, y, OnLattice2DCells.cellFunctions.class);
     }
 
-    public void StepCells (double dieProb, double divProb, int colorIndex, int count)
+    public void StepCells (double dieProb, double divProb, int colorIndex)
     {
         //loop over every cell in the grid, calls the StepCell method in the cellFunctions class
         for (OnLattice2DCells.cellFunctions cell:this) //this is a for-each loop, "this" refers to this grid
         {
-            cell.StepCell(dieProb, divProb, colorIndex, count);
+            cell.StepCell(dieProb, divProb, colorIndex);
         }
     }
 
@@ -145,14 +151,16 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.cellFunctions>
 //            {
 //                model.NewAgentSQ(model.xDim/2, model.yDim/2).Init(Lymphocytes.colorIndex);
 //            }
-            model.StepCells(Lymphocytes.dieProb, Lymphocytes.divProb, Lymphocytes.colorIndex, Lymphocytes.count);
-            model.StepCells(tumorCells.dieProb, tumorCells.divProb, tumorCells.colorIndex, tumorCells.count);
-            model.StepCells(doomedCells.dieProb, doomedCells.divProb, doomedCells.colorIndex, doomedCells.count);
+            model.StepCells(Lymphocytes.dieProb, Lymphocytes.divProb, Lymphocytes.colorIndex);
+            model.StepCells(tumorCells.dieProb, tumorCells.divProb, tumorCells.colorIndex);
+            model.StepCells(doomedCells.dieProb, doomedCells.divProb, doomedCells.colorIndex);
             model.DrawModel(win);
         }
 
-        model.printPopulation(Lymphocytes.name, Lymphocytes.count);
-        model.printPopulation(tumorCells.name, tumorCells.count);
-        model.printPopulation(doomedCells.name, doomedCells.count);
+//        model.printPopulation(Lymphocytes.name, Lymphocytes.count);
+//        model.printPopulation(tumorCells.name, tumorCells.count);
+//        model.printPopulation(doomedCells.name, doomedCells.count);
+        System.out.println(model.AllAgents());
+        Lymphocytes.model.Pop();
     }
 }
