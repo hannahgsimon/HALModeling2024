@@ -10,5 +10,5 @@ public interface Cells
     int colorIndex();
     int count();
 
-    public double survivingFraction();
+    //public double survivingFraction();
 }

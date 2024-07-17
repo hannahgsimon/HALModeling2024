@@ -7,6 +7,7 @@ import HAL.Gui.GridWindow;
 import HAL.Rand;
 import HAL.Util;
 import java.lang.Math;
+import java.lang.reflect.Field;
 
 //Author: Hannah Simon, HTiigee on Git
 
@@ -30,6 +31,8 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DCells.OnLattice2DGri
             else if (this.color == Util.CategorialColor(TumorCells.colorIndex))
             {
                 TumorCells.count--;
+                DoomedCells.count++;
+                this.color = Util.CategorialColor(DoomedCells.colorIndex);
             }
             else
             {
@@ -58,21 +61,69 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DCells.OnLattice2DGri
             }
         }
     }
+
+    public static double survivingFraction(double radiationDose, String className, String alpha, String beta) throws Exception
+    {
+        try
+        {
+            double radiationDose = 10;
+
+            String className = "OnLattice2DCells.Figure4";
+            Class<?> clazz = Class.forName(className);
+
+            Field field1 = clazz.getDeclaredField("radiationSensitivityOfLymphocytesAlpha");
+            Object value1 = field1.get(null); // Static field, use 'null' for static access
+
+            Field field2 = clazz.getDeclaredField("radiationSensitivityOfLymphocytesBeta");
+            Object value2 = field2.get(null);
+
+            return Math.exp((Double) value1 * -radiationDose - (Double) value2 * Math.pow(radiationDose, 2));
+            //return (Double) (-x.radiationSensitivityOfLymphocytesAlpha * radiationDose - radiationSensitivityOfLymphocytesBeta * Math.pow(radiationDose, 2));
+        }
+        catch (ClassNotFoundException e)
+        {
+            System.err.println("Class not found: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
+        catch (NoSuchFieldException e)
+        {
+            System.err.println("Field not found: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
+        catch (Exception e)
+        {
+            System.err.println("Error during reflection: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
+    }
 }
 
-abstract class Lymphocytes implements Cells
+class Lymphocytes
 {
     public static String name = "Lymphocyte Cells";
-    public static double dieProb = survivingFraction();
-    public static double divProb = tumorGrowthRate;
-    public static int colorIndex = 0;
-    public static int count = 1;
+    public static double dieProb;
+    public static double survivingFractionL;
 
-    public double survivingFraction()
+    static
     {
-        double radiationDose;
-        return (-radiationSensitivityOfLymphocytesAlpha * radiationDose - radiationSensitivityOfLymphocytesBeta * Math.pow(radiationDose, 2));
+        try
+        {
+            survivingFractionL = CellFunctions.survivingFraction("radiationSensitivityOfLymphocytesAlpha", "radiationSensitivityOfLymphocytesBeta");
+            dieProb = 1 - survivingFractionL + survivingFractionL * decayConstantOfL;
+        }
+        catch (Exception e)
+        {
+            throw new RuntimeException(e);
+        }
     }
+
+    public static double divProb = 1 - dieProb;
+    //public static double divProb = tumorGrowthRate;
+    public static int colorIndex = 0;
+    public static int count = 0;
 }
 
 abstract class TumorCells implements Cells
@@ -81,13 +132,7 @@ abstract class TumorCells implements Cells
     public static double dieProb = 0.1;
     public static double divProb = 0.2;
     public static int colorIndex = 1;
-    public static int count = 1;
-
-    public double survivingFraction()
-    {
-        double radiationDose;
-        return (-radiationSensitivityOfTumorCellsAlpha * radiationDose - radiationSensitivityOfTumorCellsBeta * Math.pow(radiationDose, 2));
-    }
+    public static int count = 0;
 }
 
 abstract class DoomedCells implements Cells
@@ -96,15 +141,15 @@ abstract class DoomedCells implements Cells
     public static double dieProb = 0.1;
     public static double divProb = 0.2;
     public static int colorIndex = 3;
-    public static int count = 1;
+    public static int count = 0;
 }
 
 abstract class Figure2 implements ModelParameters
 {
-    double radiationSensitivityOfTumorCellsAlpha = 0; //null
-    double radiationSensitivityOfTumorCellsBeta = 0;  //null
-    double radiationSensitivityOfLymphocytesAlpha = 0; //null
-    double radiationSensitivityOfLymphocytesBeta = 0; //null
+    public static double radiationSensitivityOfTumorCellsAlpha = 0; //null
+    public static double radiationSensitivityOfTumorCellsBeta = 0;  //null
+    public static double radiationSensitivityOfLymphocytesAlpha = 0; //null
+    public static double radiationSensitivityOfLymphocytesBeta = 0; //null
     public static double tumorGrowthRate = 0.217;
     public static double tumorInfiltratioinRate = 0.1;
     public static double rateOfCellKilling = 0.05;
@@ -117,10 +162,10 @@ abstract class Figure2 implements ModelParameters
 
 abstract class Figure3 implements ModelParameters
 {
-    double radiationSensitivityOfTumorCellsAlpha = 0.05;
-    double radiationSensitivityOfTumorCellsBeta = 0.0114;
-    double radiationSensitivityOfLymphocytesAlpha = 0.182;
-    double radiationSensitivityOfLymphocytesBeta = 0.143;
+    public static double radiationSensitivityOfTumorCellsAlpha = 0.05;
+    public static double radiationSensitivityOfTumorCellsBeta = 0.0114;
+    public static double radiationSensitivityOfLymphocytesAlpha = 0.182;
+    public static double radiationSensitivityOfLymphocytesBeta = 0.143;
     public static double tumorGrowthRate = 0.217;
     public static double tumorInfiltratioinRate = 0.5;
     public static double rateOfCellKilling = 0.135;
@@ -133,10 +178,10 @@ abstract class Figure3 implements ModelParameters
 
 abstract class Figure4 implements ModelParameters
 {
-    double radiationSensitivityOfTumorCellsAlpha = 0.05;
-    double radiationSensitivityOfTumorCellsBeta = 0.0114;
-    double radiationSensitivityOfLymphocytesAlpha = 0.182;
-    double radiationSensitivityOfLymphocytesBeta = 0.143;
+    public static double radiationSensitivityOfTumorCellsAlpha = 0.05;
+    public static double radiationSensitivityOfTumorCellsBeta = 0.0114;
+    public static double radiationSensitivityOfLymphocytesAlpha = 0.182;
+    public static double radiationSensitivityOfLymphocytesBeta = 0.143;
     public static double tumorGrowthRate = 0.217;
     public static double tumorInfiltratioinRate = 0.5;
     public static double rateOfCellKilling = 0.135;
@@ -149,10 +194,10 @@ abstract class Figure4 implements ModelParameters
 
 abstract class Figure5 implements ModelParameters
 {
-    double radiationSensitivityOfTumorCellsAlpha = 0.05;
-    double radiationSensitivityOfTumorCellsBeta = 0.0114;
-    double radiationSensitivityOfLymphocytesAlpha = 0.182;
-    double radiationSensitivityOfLymphocytesBeta = 0.143;
+    public static double radiationSensitivityOfTumorCellsAlpha = 0.05;
+    public static double radiationSensitivityOfTumorCellsBeta = 0.0114;
+    public static double radiationSensitivityOfLymphocytesAlpha = 0.182;
+    public static double radiationSensitivityOfLymphocytesBeta = 0.143;
     public static double tumorGrowthRate = 0.217;
     public static double tumorInfiltratioinRate = 0.5;
     public static double rateOfCellKilling = 0.135;
@@ -165,10 +210,10 @@ abstract class Figure5 implements ModelParameters
 
 abstract class Figure6 implements ModelParameters
 {
-    double radiationSensitivityOfTumorCellsAlpha = 0.214;
-    double radiationSensitivityOfTumorCellsBeta = 0.0214;
-    double radiationSensitivityOfLymphocytesAlpha = 0.182;
-    double radiationSensitivityOfLymphocytesBeta = 0.143;
+    public static double radiationSensitivityOfTumorCellsAlpha = 0.214;
+    public static double radiationSensitivityOfTumorCellsBeta = 0.0214;
+    public static double radiationSensitivityOfLymphocytesAlpha = 0.182;
+    public static double radiationSensitivityOfLymphocytesBeta = 0.143;
     public static double tumorGrowthRate = 0.03;
     public static double tumorInfiltratioinRate = 0.1;
     public static double rateOfCellKilling = 0.004;
@@ -195,6 +240,9 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
         NewAgentSQ(20, 20).Init(Lymphocytes.colorIndex);
         NewAgentSQ(10, 10).Init(TumorCells.colorIndex);
         NewAgentSQ(0, 0).Init(DoomedCells.colorIndex);
+        Lymphocytes.count++;
+        TumorCells.count++;
+        DoomedCells.count++;
     }
 
     public void StepCells (double dieProb, double divProb, int colorIndex)
@@ -313,8 +361,7 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
         System.out.println("Total number of " + name + " (" + findColor(colorIndex) + "): " + count);
     }
 
-    public static void main (String[] args)
-    {
+    public static void main (String[] args) throws Exception {
         int x = 100;
         int y = 100;
         int timesteps = 1000;
@@ -323,6 +370,8 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
         AgentList model2 = new AgentList();
 
         model.Init();
+        //Lymphocytes.dieProb = CellFunctions.survivingFraction("radiationSensitivityOfLymphocytesAlpha", "radiationSensitivityOfLymphocytesBeta");
+        //TumorCells.dieProb = CellFunctions.survivingFraction("radiationSensitivityOfTumorCellsAlpha", "radiationSensitivityOfTumorCellsBeta");
 
         for (int i = 0; i < timesteps; i++) //this for loop loops over all the time steps. The model stops running after we finish all timesteps.
         {
@@ -330,9 +379,6 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
             if (model.Pop() == 0)
             {
                 model.Init();
-                Lymphocytes.count++;
-                TumorCells.count++;
-                DoomedCells.count++;
             }
             model.StepCells(Lymphocytes.dieProb, Lymphocytes.divProb, Lymphocytes.colorIndex);
             model.StepCells(TumorCells.dieProb, TumorCells.divProb, TumorCells.colorIndex);
