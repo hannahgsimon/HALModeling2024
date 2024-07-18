@@ -8,6 +8,9 @@ import HAL.Rand;
 import HAL.Util;
 import java.lang.Math;
 import java.lang.reflect.Field;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Collections;
 
 //Author: Hannah Simon, HTiigee on Git
 
@@ -23,10 +26,10 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DCells.OnLattice2DGri
     {
         if (G.rng.Double() < dieProb)
         {
-            Dispose();
             if (this.color == Util.CategorialColor(Lymphocytes.colorIndex))
             {
                 Lymphocytes.count--;
+                Dispose();
             }
             else if (this.color == Util.CategorialColor(TumorCells.colorIndex))
             {
@@ -37,6 +40,7 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DCells.OnLattice2DGri
             else
             {
                 DoomedCells.count--;
+                Dispose();
             }
         }
 
@@ -46,39 +50,102 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DCells.OnLattice2DGri
             if (options > 0)
             {
                 G.NewAgentSQ(G.divHood[G.rng.Int(options)]).Init(colorIndex); //creates a new agent in a random  location in the neighborhood around the cell
-                if (this.color == Util.CategorialColor(Lymphocytes.colorIndex))
-                {
-                    Lymphocytes.count++;
-                }
-                else if (this.color == Util.CategorialColor(TumorCells.colorIndex))
-                {
-                    TumorCells.count++;
-                }
-                else
-                {
-                    DoomedCells.count++;
-                }
+                TumorCells.count++;
             }
         }
     }
 
-    public static double survivingFraction(double radiationDose, String className, String alpha, String beta) throws Exception
+    public void lymphociteMigration(List<Integer> availableSpaces)
+    {
+        int newLymphocytes = (int) Lymphocytes.tumorInfiltrationRate * TumorCells.count;
+        Collections.shuffle(availableSpaces);
+        int spacesToPick = Math.min(newLymphocytes, availableSpaces.size()); // Ensure we don’t pick more spaces than available
+        List<Integer> randomSpaces = availableSpaces.subList(0, spacesToPick); // Get the first "newLymphocytes" number of spaces from the shuffled list
+        System.out.println(randomSpaces); //Not necessary, just a check
+
+        for (int i = 0; i < newLymphocytes; i++)
+        {
+            G.NewAgentSQ(G.divHood[G.rng.Int(options)]).Init(Lymphocytes.colorIndex); //creates a new agent in a random  location in the neighborhood around the cell
+        }
+
+        Lymphocytes.count += newLymphocytes;
+    }
+
+    public static double getDecayConstant(String className, String decayConstant) throws Exception
     {
         try
         {
-            double radiationDose = 10;
+            Class<?> clazz = Class.forName(className);
+            Field field = clazz.getDeclaredField(decayConstant);
+            Object value = field.get(null); // Static field, use 'null' for static access
+            return (Double) value;
+        }
+        catch (ClassNotFoundException e)
+        {
+            System.err.println("Class not found: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
+        catch (NoSuchFieldException e)
+        {
+            System.err.println("Field not found: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
+        catch (Exception e)
+        {
+            System.err.println("Error during reflection: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
+    }
 
-            String className = "OnLattice2DCells.Figure4";
+    public static double getSurvivingFraction(double radiationDose, String className, String alpha, String beta) throws Exception
+    {
+        try
+        {
+            //double radiationDose = 10;
+
+            //String className = "OnLattice2DCells.Figure4";
             Class<?> clazz = Class.forName(className);
 
-            Field field1 = clazz.getDeclaredField("radiationSensitivityOfLymphocytesAlpha");
+            Field field1 = clazz.getDeclaredField(alpha);
             Object value1 = field1.get(null); // Static field, use 'null' for static access
 
-            Field field2 = clazz.getDeclaredField("radiationSensitivityOfLymphocytesBeta");
+            Field field2 = clazz.getDeclaredField(beta);
             Object value2 = field2.get(null);
 
             return Math.exp((Double) value1 * -radiationDose - (Double) value2 * Math.pow(radiationDose, 2));
             //return (Double) (-x.radiationSensitivityOfLymphocytesAlpha * radiationDose - radiationSensitivityOfLymphocytesBeta * Math.pow(radiationDose, 2));
+        }
+        catch (ClassNotFoundException e)
+        {
+            System.err.println("Class not found: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
+        catch (NoSuchFieldException e)
+        {
+            System.err.println("Field not found: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
+        catch (Exception e)
+        {
+            System.err.println("Error during reflection: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
+    }
+
+    public static double getTumorInfiltrationRate(String className) throws Exception
+    {
+        try
+        {
+            Class<?> clazz = Class.forName(className);
+            Field field = clazz.getDeclaredField("tumorInfiltratioinRate");
+            Object value = field.get(null); // Static field, use 'null' for static access
+            return (Double) value;
         }
         catch (ClassNotFoundException e)
         {
@@ -105,25 +172,28 @@ class Lymphocytes
 {
     public static String name = "Lymphocyte Cells";
     public static double dieProb;
+    public static double divProb = 0;
+    public static int colorIndex = 0;
+    public static int count = 0;
     public static double survivingFractionL;
+    public static double decayConstantOfL;
+    public static double tumorInfiltrationRate;
 
     static
     {
         try
         {
-            survivingFractionL = CellFunctions.survivingFraction("radiationSensitivityOfLymphocytesAlpha", "radiationSensitivityOfLymphocytesBeta");
+            String fullName = "OnLattice2DCells." + OnLattice2DGrid.className;
+            decayConstantOfL = CellFunctions.getDecayConstant(fullName, "decayConstantOfL");
+            survivingFractionL = CellFunctions.getSurvivingFraction(OnLattice2DGrid.radiationDose, fullName, "radiationSensitivityOfLymphocytesAlpha", "radiationSensitivityOfLymphocytesBeta");
             dieProb = 1 - survivingFractionL + survivingFractionL * decayConstantOfL;
+            tumorInfiltrationRate = CellFunctions.getTumorInfiltrationRate(fullName);
         }
         catch (Exception e)
         {
             throw new RuntimeException(e);
         }
     }
-
-    public static double divProb = 1 - dieProb;
-    //public static double divProb = tumorGrowthRate;
-    public static int colorIndex = 0;
-    public static int count = 0;
 }
 
 abstract class TumorCells implements Cells
@@ -138,10 +208,25 @@ abstract class TumorCells implements Cells
 abstract class DoomedCells implements Cells
 {
     public static String name = "Doomed Cells";
-    public static double dieProb = 0.1;
-    public static double divProb = 0.2;
+    public static double dieProb;
+    public static double divProb = 0;
     public static int colorIndex = 3;
     public static int count = 0;
+    public static double decayConstantOfD;
+
+    static
+    {
+        try
+        {
+            String fullName = "OnLattice2DCells." + OnLattice2DGrid.className;
+            decayConstantOfD = CellFunctions.getDecayConstant(fullName, "decayConstantOfD");
+            dieProb = decayConstantOfD;
+        }
+        catch (Exception e)
+        {
+            throw new RuntimeException(e);
+        }
+    }
 }
 
 abstract class Figure2 implements ModelParameters
@@ -229,6 +314,10 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
     Rand rng = new Rand();
     int[] divHood = Util.VonNeumannHood(false);
 
+    public static int figureCount;
+    public static String className = "Figure2";
+    public static int radiationDose;
+
     public OnLattice2DGrid(int x, int y)
     {
         super(x, y, OnLattice2DCells.CellFunctions.class);
@@ -236,13 +325,11 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
 
     public void Init()
     {
-        //model.NewAgentSQ(model.xDim/2, model.yDim/2).Init(Lymphocytes.colorIndex);
+        //model.NewAgentSQ(model.xDim/2, model.yDim/2).Init(TumorCells.colorIndex);
+        NewAgentSQ(xDim/2, yDim/2).Init(TumorCells.colorIndex);
         NewAgentSQ(20, 20).Init(Lymphocytes.colorIndex);
-        NewAgentSQ(10, 10).Init(TumorCells.colorIndex);
-        NewAgentSQ(0, 0).Init(DoomedCells.colorIndex);
         Lymphocytes.count++;
         TumorCells.count++;
-        DoomedCells.count++;
     }
 
     public void StepCells (double dieProb, double divProb, int colorIndex)
@@ -252,6 +339,22 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
         {
             cell.StepCell(dieProb, divProb, colorIndex);
         }
+    }
+
+    public void getAvailableSpaces(GridWindow win)
+    {
+        List<Integer> availableSpaces = new ArrayList<>();
+        for (int i = 0; i < length; i++)
+        {
+            OnLattice2DCells.CellFunctions cell = GetAgent(i);
+            if (cell == null)
+            {
+                availableSpaces.add(i);
+            }
+        }
+        //OnLattice2DCells.CellFunctions cell = new OnLattice2DCells.CellFunctions();
+        //cell.lymphociteMigration(availableSpaces);
+        new OnLattice2DCells.CellFunctions().lymphociteMigration(availableSpaces); //Doing the above in 1 line
     }
 
     public void DrawModel(GridWindow win)
@@ -361,33 +464,66 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
         System.out.println("Total number of " + name + " (" + findColor(colorIndex) + "): " + count);
     }
 
-    public static void main (String[] args) throws Exception {
-        int x = 100;
-        int y = 100;
-        int timesteps = 1000;
-        GridWindow win = new GridWindow(x, y, 5);
-        OnLattice2DCells.OnLattice2DGrid model = new OnLattice2DCells.OnLattice2DGrid(x, y);
-        AgentList model2 = new AgentList();
+    public static void main (String[] args) throws Exception
+    {
 
-        model.Init();
-        //Lymphocytes.dieProb = CellFunctions.survivingFraction("radiationSensitivityOfLymphocytesAlpha", "radiationSensitivityOfLymphocytesBeta");
-        //TumorCells.dieProb = CellFunctions.survivingFraction("radiationSensitivityOfTumorCellsAlpha", "radiationSensitivityOfTumorCellsBeta");
-
-        for (int i = 0; i < timesteps; i++) //this for loop loops over all the time steps. The model stops running after we finish all timesteps.
+        for (figureCount = 1; figureCount < 6; figureCount++)
         {
-            win.TickPause(20);
-            if (model.Pop() == 0)
+            if (figureCount == 1)
             {
-                model.Init();
+                className = "Figure2";
             }
-            model.StepCells(Lymphocytes.dieProb, Lymphocytes.divProb, Lymphocytes.colorIndex);
-            model.StepCells(TumorCells.dieProb, TumorCells.divProb, TumorCells.colorIndex);
-            model.StepCells(DoomedCells.dieProb, DoomedCells.divProb, DoomedCells.colorIndex);
-            model.DrawModel(win);
-        }
+            else if (figureCount == 2)
+            {
+                className = "Figure3";
+            }
+            else if (figureCount == 3)
+            {
+                className = "Figure4";
+            }
+            else if (figureCount == 4)
+            {
+                className = "Figure5";
+            }
+            else if (figureCount == 5)
+            {
+                className = "Figure6";
+            }
+            else if (figureCount == 6)
+            {
+                System.exit(0);
+            }
 
-        model.printPopulation(Lymphocytes.name, Lymphocytes.colorIndex, Lymphocytes.count);
-        model.printPopulation(TumorCells.name, TumorCells.colorIndex, TumorCells.count);
-        model.printPopulation(DoomedCells.name, DoomedCells.colorIndex, DoomedCells.count);
+            for (radiationDose = 10; radiationDose <= 20; radiationDose += 5)
+            {
+                int x = 100;
+                int y = 100;
+                int timesteps = 1000;
+                GridWindow win = new GridWindow(x, y, 5);
+                OnLattice2DCells.OnLattice2DGrid model = new OnLattice2DCells.OnLattice2DGrid(x, y);
+
+                model.Init();
+                //Lymphocytes.dieProb = CellFunctions.survivingFraction("radiationSensitivityOfLymphocytesAlpha", "radiationSensitivityOfLymphocytesBeta");
+                //TumorCells.dieProb = CellFunctions.survivingFraction("radiationSensitivityOfTumorCellsAlpha", "radiationSensitivityOfTumorCellsBeta");
+
+                for (int i = 0; i < timesteps; i++) //this for loop loops over all the time steps. The model stops running after we finish all timesteps.
+                {
+                    win.TickPause(20);
+                    if (model.Pop() == 0)
+                    {
+                        model.Init();
+                    }
+                    model.StepCells(Lymphocytes.dieProb, Lymphocytes.divProb, Lymphocytes.colorIndex);
+                    model.StepCells(TumorCells.dieProb, TumorCells.divProb, TumorCells.colorIndex);
+                    model.StepCells(DoomedCells.dieProb, DoomedCells.divProb, DoomedCells.colorIndex);
+                    model.getAvailableSpaces(win);
+                    model.DrawModel(win);
+                }
+
+                model.printPopulation(Lymphocytes.name, Lymphocytes.colorIndex, Lymphocytes.count);
+                model.printPopulation(TumorCells.name, TumorCells.colorIndex, TumorCells.count);
+                model.printPopulation(DoomedCells.name, DoomedCells.colorIndex, DoomedCells.count);
+            }
+        }
     }
 }
