@@ -55,20 +55,21 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DCells.OnLattice2DGri
         }
     }
 
-    public void lymphociteMigration(List<Integer> availableSpaces)
+    public void lymphociteMigration(List<int[]> availableSpaces)
     {
+        System.out.println(availableSpaces); //Not necessary, just a check
         int newLymphocytes = (int) Lymphocytes.tumorInfiltrationRate * TumorCells.count;
         Collections.shuffle(availableSpaces);
         int spacesToPick = Math.min(newLymphocytes, availableSpaces.size()); // Ensure we don’t pick more spaces than available
-        List<Integer> randomSpaces = availableSpaces.subList(0, spacesToPick); // Get the first "newLymphocytes" number of spaces from the shuffled list
+        List<int[]> randomSpaces = availableSpaces.subList(0, spacesToPick); // Get the first "spacesToPick" number of spaces from the shuffled list
         System.out.println(randomSpaces); //Not necessary, just a check
 
-        for (int i = 0; i < newLymphocytes; i++)
+        for (int i = 0; i < spacesToPick; i++)
         {
-            G.NewAgentSQ(G.divHood[G.rng.Int(options)]).Init(Lymphocytes.colorIndex); //creates a new agent in a random  location in the neighborhood around the cell
+            G.NewAgentSQ(randomSpaces.get(i)[0], randomSpaces.get(i)[1]).Init(Lymphocytes.colorIndex);
         }
 
-        Lymphocytes.count += newLymphocytes;
+        Lymphocytes.count += spacesToPick;
     }
 
     public static double getDecayConstant(String className, String decayConstant) throws Exception
@@ -343,13 +344,17 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
 
     public void getAvailableSpaces(GridWindow win)
     {
-        List<Integer> availableSpaces = new ArrayList<>();
+        List<int[]> availableSpaces = new ArrayList<>(); //This is a list of arrays
         for (int i = 0; i < length; i++)
         {
             OnLattice2DCells.CellFunctions cell = GetAgent(i);
             if (cell == null)
             {
-                availableSpaces.add(i);
+                cell = NewAgentSQ(i);
+                cell.Xpt();
+                cell.Ypt();
+                availableSpaces.add(new int[]{(int) cell.Xpt(),(int) cell.Ypt()});
+                cell.Dispose();
             }
         }
         //OnLattice2DCells.CellFunctions cell = new OnLattice2DCells.CellFunctions();
@@ -373,6 +378,7 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
             }
             win.SetPix(i, color);
         }
+        //GifMaker(outputPath,timeBetweenFramesMS,loopContinuously?);
     }
 
     public String findColor(int colorIndex)
