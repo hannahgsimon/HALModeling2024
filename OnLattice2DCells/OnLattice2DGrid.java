@@ -26,35 +26,51 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DCells.OnLattice2DGri
         this.color = Util.CategorialColor(colorIndex);
     }
 
-    public void StepCell(double dieProb, double divProb, int colorIndex)
+    public void StepCell(GridWindow win, List<int[]> occupiedSpaces)
     {
-        if (G.rng.Double() < dieProb)
+        for (int i = 0; i < occupiedSpaces.size(); i++)
         {
-            if (this.color == Util.CategorialColor(Lymphocytes.colorIndex))
-            {
-                Lymphocytes.count--;
-                Dispose();
-            }
-            else if (this.color == Util.CategorialColor(TumorCells.colorIndex))
-            {
-                this.color = Util.CategorialColor(DoomedCells.colorIndex);
-                TumorCells.count--;
-                DoomedCells.count++;
-            }
-            else
-            {
-                DoomedCells.count--;
-                Dispose();
-            }
-        }
+            //win.GetPix(occupiedSpaces.get(i)[0], occupiedSpaces.get(i)[1]);
+//            System.out.println(j);
+//            System.out.println(Util.CategorialColor(Lymphocytes.colorIndex));
+//            System.out.println(Util.CategorialColor(TumorCells.colorIndex));
 
-        else if (this.color == Util.CategorialColor(TumorCells.colorIndex) && G.rng.Double() < (dieProb + divProb))
-        {
-            int options = MapEmptyHood(G.divHood);
-            if (options > 0)
+            if (win.GetPix(occupiedSpaces.get(i)[0], occupiedSpaces.get(i)[1]) == Util.CategorialColor(Lymphocytes.colorIndex))
             {
-                G.NewAgentSQ(G.divHood[G.rng.Int(options)]).Init(colorIndex); //creates a new agent in a random  location in the neighborhood around the cell
-                TumorCells.count++;
+                if (G.rng.Double() < Lymphocytes.dieProb)
+                {
+                    Lymphocytes.count--;
+                    Dispose();
+                }
+            }
+
+            else if (win.GetPix(occupiedSpaces.get(i)[0], occupiedSpaces.get(i)[1]) == Util.CategorialColor(TumorCells.colorIndex))
+            {
+                if (G.rng.Double() < TumorCells.dieProb)
+                {
+                    win.SetPix(occupiedSpaces.get(i)[0], occupiedSpaces.get(i)[1], Util.CategorialColor(DoomedCells.colorIndex));
+                    //this.color = Util.CategorialColor(DoomedCells.colorIndex);
+                    TumorCells.count--;
+                    DoomedCells.count++;
+                }
+                else if (G.rng.Double() < (TumorCells.dieProb + TumorCells.divProb))
+                {
+                    int options = MapEmptyHood(G.divHood);
+                    if (options > 0)
+                    {
+                        G.NewAgentSQ(G.divHood[G.rng.Int(options)]).Init(TumorCells.colorIndex); //creates a new agent in a random  location in the neighborhood around the cell
+                        TumorCells.count++;
+                    }
+                }
+            }
+
+            else if (win.GetPix(occupiedSpaces.get(i)[0], occupiedSpaces.get(i)[1]) == Util.CategorialColor(DoomedCells.colorIndex))
+            {
+                if (G.rng.Double() < DoomedCells.dieProb)
+                {
+                    DoomedCells.count--;
+                    Dispose();
+                }
             }
         }
     }
@@ -448,12 +464,13 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
         TumorCells.count += tumorSize;
     }
 
-    public void StepCells (double dieProb, double divProb, int colorIndex)
+    public void StepCells (GridWindow win, List<int[]> occupiedSpaces)
     {
         //loop over every cell in the grid, calls the StepCell method in the cellFunctions class
+
         for (OnLattice2DCells.CellFunctions cell:this) //this is a for-each loop, "this" refers to this grid
         {
-            cell.StepCell(dieProb, divProb, colorIndex);
+            cell.StepCell(win, occupiedSpaces);
         }
     }
 
@@ -476,6 +493,20 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
         //OnLattice2DCells.CellFunctions cell = new OnLattice2DCells.CellFunctions();
         //cell.lymphociteMigration(availableSpaces);
         new OnLattice2DCells.CellFunctions().lymphociteMigration(availableSpaces, this); //Doing the above 2 lines in 1 line
+    }
+
+    public List<int[]> getOccupiedSpaces(GridWindow win)
+    {
+        List<int[]> occupiedSpaces = new ArrayList<>();
+        for (int i = 0; i < length; i++)
+        {
+            OnLattice2DCells.CellFunctions cell = GetAgent(i);
+            if (cell != null)
+            {
+                occupiedSpaces.add(new int[]{(int) cell.Xpt(),(int) cell.Ypt()});
+            }
+        }
+        return occupiedSpaces;
     }
 
     public void DrawModel(GridWindow win)
@@ -583,7 +614,6 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
 
     public void saveToCSV(String fullPath, boolean append, int timestep)
     {
-        //System.out.println("Attempting to write to: " + fullPath);
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(fullPath, append)))
         {
             if (timestep == 0)
@@ -593,17 +623,6 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
             }
             writer.write(timestep + "," + Lymphocytes.count + "," + TumorCells.count + "," + DoomedCells.count);
             writer.newLine();
-
-            /*writer.write("Cell Type, Count");
-            writer.newLine();
-            writer.write(Lymphocytes.name + "," + Lymphocytes.count);
-            writer.newLine();
-            writer.write( TumorCells.name + "," + TumorCells.count);
-            writer.newLine();
-            writer.write(DoomedCells.name + "," + DoomedCells.count);
-            writer.newLine();
-            writer.write("Total Cells," + Pop());*/
-            //System.out.println("CSV file written successfully");
         }
         catch (IOException e)
         {
@@ -680,9 +699,9 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
                     }
                     //I considered adding checks for if either lymphocytes or tumor cells only reaches zero, but not necessary
 
-                    model.StepCells(Lymphocytes.dieProb, Lymphocytes.divProb, Lymphocytes.colorIndex);
-                    model.StepCells(TumorCells.dieProb, TumorCells.divProb, TumorCells.colorIndex);
-                    model.StepCells(DoomedCells.dieProb, DoomedCells.divProb, DoomedCells.colorIndex);
+                    new OnLattice2DCells.CellFunctions().StepCell(win, model.getOccupiedSpaces(win));
+
+                    //model.StepCells(win, model.getOccupiedSpaces(win));
                     model.getAvailableSpaces(win);
                     model.DrawModel(win);
 
