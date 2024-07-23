@@ -12,8 +12,11 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
 
-//Author: Hannah Simon, HTiigee on Git
+//Author: Hannah Simon, HTigee on Git
 
 class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DCells.OnLattice2DGrid>
 {
@@ -409,6 +412,10 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
     public static String className = "Figure2";
     public static int radiationDose;
 
+    public static final String directory = "C:\\Users\\Hannah\\Documents\\HALModeling2024Outs\\";
+    public static final String fileName = "TrialRun.csv";
+    public static final String fullPath = directory + fileName;
+
     public OnLattice2DGrid(int x, int y)
     {
         super(x, y, OnLattice2DCells.CellFunctions.class);
@@ -574,6 +581,38 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
         }
     }
 
+    public void saveToCSV(String fullPath, boolean append, int timestep)
+    {
+        //System.out.println("Attempting to write to: " + fullPath);
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(fullPath, append)))
+        {
+            if (timestep == 0)
+            {
+                writer.write("Timestep," + Lymphocytes.name + "," + TumorCells.name + "," + DoomedCells.name);
+                writer.newLine();
+            }
+            writer.write(timestep + "," + Lymphocytes.count + "," + TumorCells.count + "," + DoomedCells.count);
+            writer.newLine();
+
+            /*writer.write("Cell Type, Count");
+            writer.newLine();
+            writer.write(Lymphocytes.name + "," + Lymphocytes.count);
+            writer.newLine();
+            writer.write( TumorCells.name + "," + TumorCells.count);
+            writer.newLine();
+            writer.write(DoomedCells.name + "," + DoomedCells.count);
+            writer.newLine();
+            writer.write("Total Cells," + Pop());*/
+            //System.out.println("CSV file written successfully");
+        }
+        catch (IOException e)
+        {
+            System.err.println("Failed to write CSV file: " + e.getMessage());
+            e.printStackTrace();
+            System.exit(0);
+        }
+    }
+
     public void printPopulation(String name, int colorIndex, int count)
     {
         System.out.println("Population of " + name + " (" + findColor(colorIndex) + "): " + count);
@@ -620,27 +659,43 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
                 OnLattice2DCells.OnLattice2DGrid model = new OnLattice2DCells.OnLattice2DGrid(x, y);
 
                 model.Init();
+
+                int timestep = 0;
+                model.saveToCSV(fullPath, false, timestep);
+                timestep++;
                 //Lymphocytes.dieProb = CellFunctions.survivingFraction("radiationSensitivityOfLymphocytesAlpha", "radiationSensitivityOfLymphocytesBeta");
                 //TumorCells.dieProb = CellFunctions.survivingFraction("radiationSensitivityOfTumorCellsAlpha", "radiationSensitivityOfTumorCellsBeta");
 
                 for (int i = 0; i < timesteps; i++) //this for loop loops over all the time steps. The model stops running after we finish all timesteps.
                 {
-                    win.TickPause(20);
+                    win.TickPause(1);
                     if (model.Pop() == 0)
                     {
+                        timesteps += timestep - 1;
+
                         model.Init();
+                        timestep = 0;
+                        model.saveToCSV(fullPath, true, timestep);
+                        timestep++;
                     }
+                    //I considered adding checks for if either lymphocytes or tumor cells only reaches zero, but not necessary
+
                     model.StepCells(Lymphocytes.dieProb, Lymphocytes.divProb, Lymphocytes.colorIndex);
                     model.StepCells(TumorCells.dieProb, TumorCells.divProb, TumorCells.colorIndex);
                     model.StepCells(DoomedCells.dieProb, DoomedCells.divProb, DoomedCells.colorIndex);
                     model.getAvailableSpaces(win);
                     model.DrawModel(win);
+
+                    model.saveToCSV(fullPath, true, timestep);
+                    timestep++;
                 }
 
                 model.printPopulation(Lymphocytes.name, Lymphocytes.colorIndex, Lymphocytes.count);
                 model.printPopulation(TumorCells.name, TumorCells.colorIndex, TumorCells.count);
                 model.printPopulation(DoomedCells.name, DoomedCells.colorIndex, DoomedCells.count);
+                System.out.println("Population Total: " + model.Pop());
                 System.out.println();
+                System.exit(0);
             }
         }
     }
