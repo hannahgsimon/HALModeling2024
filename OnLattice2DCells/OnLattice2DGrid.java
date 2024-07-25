@@ -31,6 +31,7 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DCells.OnLattice2DGri
     {
         if (this.color == Util.CategorialColor(Lymphocytes.colorIndex))
         {
+            System.out.println("L");
             if (G.rng.Double() < Lymphocytes.dieProb)
             {
                 Lymphocytes.count--;
@@ -40,6 +41,7 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DCells.OnLattice2DGri
 
         else if (this.color == Util.CategorialColor(TumorCells.colorIndex))
         {
+            //System.out.println("T");
             if (G.rng.Double() < TumorCells.dieProb)
             {
                 this.color = Util.CategorialColor(DoomedCells.colorIndex);
@@ -54,6 +56,7 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DCells.OnLattice2DGri
 
         else if (this.color == Util.CategorialColor(DoomedCells.colorIndex))
         {
+            //System.out.println("D");
             if (G.rng.Double() < DoomedCells.dieProb)
             {
                 DoomedCells.count--;
@@ -264,6 +267,8 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DCells.OnLattice2DGri
             double primaryImmuneResponse = CellFunctions.getPrimaryImmuneResponse(TumorCells.fullName, "rateOfCellKilling", "immuneSuppressionEffect");
             TumorCells.dieProb = 1 - TumorCells.survivingFractionT + (TumorCells.survivingFractionT * primaryImmuneResponse);
             TumorCells.divProb = TumorCells.survivingFractionT * (1 - primaryImmuneResponse) * TumorCells.tumorGrowthRate;
+            //double oop = TumorCells.survivingFractionT *(1 - primaryImmuneResponse) * (1- TumorCells.tumorGrowthRate);
+            //System.out.println(TumorCells.dieProb + TumorCells.divProb + oop);
         }
         catch (Exception e)
         {
@@ -293,6 +298,8 @@ class Lymphocytes
             survivingFractionL = CellFunctions.getSurvivingFraction(OnLattice2DGrid.radiationDose, fullName, "radiationSensitivityOfLymphocytesAlpha", "radiationSensitivityOfLymphocytesBeta");
             dieProb = 1 - survivingFractionL + (survivingFractionL * decayConstantOfL);
             tumorInfiltrationRate = CellFunctions.getTumorInfiltrationRate(fullName);
+            //double oop = survivingFractionL * (1 - decayConstantOfL);
+            //System.out.println(dieProb + oop);
         }
         catch (Exception e)
         {
@@ -455,24 +462,30 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
     {
         //model.NewAgentSQ(model.xDim/2, model.yDim/2).Init(TumorCells.colorIndex);
         int tumorSize = 50; //number of cells in initial tumor before beginning treatment
-        int lymphocitePopulation = 0; //number of initial lymphocite cells before beginning treatment
+        int lymphocitePopulation = 1; //number of initial lymphocite cells before beginning treatment
         if (tumorSize + lymphocitePopulation > model.xDim * model.yDim)
         {
             System.err.println("Error: Number of tumor and lymphocite cells exceeds grid size.");
             System.exit(0);
         }
 
-        model.NewAgentSQ(model.xDim/2, model.yDim/2).Init(TumorCells.colorIndex);
-        TumorCells.count++;
-        for (int i = 0; i < tumorSize; i++)
+        if (tumorSize > 0)
         {
-            for (OnLattice2DCells.CellFunctions cell:this) //this is a for-each loop, "this" refers to this grid
+            model.NewAgentSQ(model.xDim/2, model.yDim/2).Init(TumorCells.colorIndex);
+            TumorCells.count++;
+        }
+        if (tumorSize > 1)
+        {
+            for (int i = 0; i < tumorSize; i++)
             {
-                cell.mapEmptyHood();
-                if (TumorCells.count == tumorSize)
+                for (OnLattice2DCells.CellFunctions cell:this) //this is a for-each loop, "this" refers to this grid
                 {
-                    i = tumorSize;
-                    break;
+                    cell.mapEmptyHood();
+                    if (TumorCells.count == tumorSize)
+                    {
+                        i = tumorSize;
+                        break;
+                    }
                 }
             }
         }
@@ -505,15 +518,21 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
         //availableSpaces.forEach(space -> System.out.println(Arrays.toString(space))); //Not necessary, just a check
         //OnLattice2DCells.CellFunctions cell = new OnLattice2DCells.CellFunctions();
         //cell.lymphociteMigration(availableSpaces);
-        if (migration)
+        if (!availableSpaces.isEmpty())
         {
-            new OnLattice2DCells.CellFunctions().lymphociteMigration(availableSpaces, this, migration, 0); //Doing the above 2 lines in 1 line
+            if (migration)
+            {
+                new OnLattice2DCells.CellFunctions().lymphociteMigration(availableSpaces, this, migration, 0); //Doing the above 2 lines in 1 line
+            }
+            else if (!migration)
+            {
+                if (lymphocitePopulation == 0)
+                {
+                    return availableSpaces;
+                }
+                new OnLattice2DCells.CellFunctions().lymphociteMigration(availableSpaces, this, migration, lymphocitePopulation);
+            }
         }
-        else if (!migration)
-        {
-            new OnLattice2DCells.CellFunctions().lymphociteMigration(availableSpaces, this, migration, lymphocitePopulation);
-        }
-
         return availableSpaces;
     }
 
@@ -614,10 +633,11 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
         {
             return "light gray";
         }
-        else
+        else if (colorIndex == 19)
         {
             return "dark gray";
         }
+        return "unknown color";
     }
 
     public void saveToCSV(String fullPath, boolean append, int timestep)
@@ -626,10 +646,12 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
         {
             if (timestep == 0)
             {
-                writer.write("Timestep," + Lymphocytes.name + "," + TumorCells.name + "," + DoomedCells.name);
+//                writer.write("Timestep," + Lymphocytes.name + "," + TumorCells.name + "," + DoomedCells.name);
+                writer.write("Timestep," + Lymphocytes.name + "," + TumorCells.name + "," + DoomedCells.name + ",Lymphocytes DieProb, Tumor DieProb, Tumor DivProb");
                 writer.newLine();
             }
-            writer.write(timestep + "," + Lymphocytes.count + "," + TumorCells.count + "," + DoomedCells.count);
+            //writer.write(timestep + "," + Lymphocytes.count + "," + TumorCells.count + "," + DoomedCells.count);
+            writer.write(timestep + "," + Lymphocytes.count + "," + TumorCells.count + "," + DoomedCells.count + "," + Lymphocytes.dieProb + "," + TumorCells.dieProb + "," + TumorCells.divProb);
             writer.newLine();
         }
         catch (IOException e)
@@ -697,11 +719,11 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
                 //Lymphocytes.dieProb = CellFunctions.survivingFraction("radiationSensitivityOfLymphocytesAlpha", "radiationSensitivityOfLymphocytesBeta");
                 //TumorCells.dieProb = CellFunctions.survivingFraction("radiationSensitivityOfTumorCellsAlpha", "radiationSensitivityOfTumorCellsBeta");
 
-                GifMaker gif = new GifMaker(directory + "ElephantsGif.gif",1,false);
+                GifMaker gif = new GifMaker(directory + "TrialRun.gif",1,false);
 
                 for (int i = 0; i < timesteps; i++) //this for loop loops over all the time steps. The model stops running after we finish all timesteps.
                 {
-                    win.TickPause(1);
+                    win.TickPause(10);
                     if (model.Pop() == 0)
                     {
                         timesteps += timestep - 1;
@@ -720,6 +742,7 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
 
                     model.saveToCSV(fullPath, true, timestep);
                     timestep++;
+                    //System.out.println("done with this round");
                 }
 
                 //gif.Close();
