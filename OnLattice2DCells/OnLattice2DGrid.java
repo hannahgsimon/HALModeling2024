@@ -29,21 +29,26 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DCells.OnLattice2DGri
 
     public void StepCell()
     {
+        //System.out.println("A cell acknowledged");
         if (this.color == Util.CategorialColor(Lymphocytes.colorIndex))
         {
-            System.out.println("L");
             if (G.rng.Double() < Lymphocytes.dieProb)
             {
+                //System.out.println("L die");
                 Lymphocytes.count--;
                 Dispose();
+            }
+            else
+            {
+                //System.out.println("L nothing");
             }
         }
 
         else if (this.color == Util.CategorialColor(TumorCells.colorIndex))
         {
-            //System.out.println("T");
             if (G.rng.Double() < TumorCells.dieProb)
             {
+                //System.out.println("T die");
                 this.color = Util.CategorialColor(DoomedCells.colorIndex);
                 TumorCells.count--;
                 DoomedCells.count++;
@@ -52,15 +57,23 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DCells.OnLattice2DGri
             {
                 mapEmptyHood();
             }
+            else
+            {
+                //System.out.println("T nothing");
+            }
         }
 
         else if (this.color == Util.CategorialColor(DoomedCells.colorIndex))
         {
-            //System.out.println("D");
             if (G.rng.Double() < DoomedCells.dieProb)
             {
+                //System.out.println("D die");
                 DoomedCells.count--;
                 Dispose();
+            }
+            else
+            {
+                //System.out.println("D nothing");
             }
         }
 
@@ -71,8 +84,13 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DCells.OnLattice2DGri
         int options = MapEmptyHood(G.divHood);
         if (options > 0)
         {
+            //System.out.println("T div");
             G.NewAgentSQ(G.divHood[G.rng.Int(options)]).Init(TumorCells.colorIndex);
             TumorCells.count++;
+        }
+        else
+        {
+            //System.out.println("T nothing");
         }
     }
 
@@ -87,8 +105,9 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DCells.OnLattice2DGri
         {
             newLymphocytes = lymphocitePopulation;
         }
-        Collections.shuffle(availableSpaces);
+
         int spacesToPick = Math.min(newLymphocytes, availableSpaces.size()); // Ensure we don’t pick more spaces than available
+        Collections.shuffle(availableSpaces);
 
         for (int i = 0; i < spacesToPick; i++)
         {
@@ -461,8 +480,8 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
     public void Init(GridWindow win, OnLattice2DGrid model)
     {
         //model.NewAgentSQ(model.xDim/2, model.yDim/2).Init(TumorCells.colorIndex);
-        int tumorSize = 50; //number of cells in initial tumor before beginning treatment
-        int lymphocitePopulation = 1; //number of initial lymphocite cells before beginning treatment
+        int tumorSize = 261;
+        int lymphocitePopulation = 10;
         if (tumorSize + lymphocitePopulation > model.xDim * model.yDim)
         {
             System.err.println("Error: Number of tumor and lymphocite cells exceeds grid size.");
@@ -478,33 +497,55 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
         {
             for (int i = 0; i < tumorSize; i++)
             {
-                for (OnLattice2DCells.CellFunctions cell:this) //this is a for-each loop, "this" refers to this grid
+                //for (OnLattice2DCells.CellFunctions cell:this) doesn't work
+                for (int j = 0; j < length; j++)
                 {
-                    cell.mapEmptyHood();
-                    if (TumorCells.count == tumorSize)
+                    OnLattice2DCells.CellFunctions cell = GetAgent(j);
+                    if (cell != null)
                     {
-                        i = tumorSize;
-                        break;
+                        cell.mapEmptyHood();
+                        if (TumorCells.count == tumorSize)
+                        {
+                            i = tumorSize;
+                            break;
+                        }
                     }
                 }
             }
         }
-
-        getAvailableSpaces(win, false, lymphocitePopulation);
+        if (lymphocitePopulation > 0)
+        {
+            getAvailableSpaces(win, false, lymphocitePopulation);
+        }
     }
 
     public void StepCells ()
     {
-        //loop over every cell in the grid, calls the StepCell method in the cellFunctions class
-        for (OnLattice2DCells.CellFunctions cell:this) //this is a for-each loop, "this" refers to this grid
+        for (int i = 0; i < length; i++)
         {
-            cell.StepCell();
+            OnLattice2DCells.CellFunctions cell = GetAgent(i);
+            if (cell != null)
+            {
+                cell.StepCell();
+                //System.out.println(cell);
+            }
         }
+        //loop over every cell in the grid, calls the StepCell method in the cellFunctions class
+//        for (OnLattice2DCells.CellFunctions cell:this) //this is a for-each loop, "this" refers to this grid
+//        {
+//            cell.StepCell();
+//            System.out.println(cell);
+//        }
     }
 
     public List<int[]> getAvailableSpaces(GridWindow win, boolean migration, int lymphocitePopulation)
     {
         List<int[]> availableSpaces = new ArrayList<>(); //This is a list of arrays, each array will store x- and y-coodinate
+        if (TumorCells.count + DoomedCells.count == this.xDim * this.yDim)
+        {
+            return availableSpaces;
+        }
+
         for (int i = 0; i < length; i++)
         {
             OnLattice2DCells.CellFunctions cell = GetAgent(i);
@@ -515,23 +556,13 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
                 cell.Dispose();
             }
         }
-        //availableSpaces.forEach(space -> System.out.println(Arrays.toString(space))); //Not necessary, just a check
-        //OnLattice2DCells.CellFunctions cell = new OnLattice2DCells.CellFunctions();
-        //cell.lymphociteMigration(availableSpaces);
-        if (!availableSpaces.isEmpty())
+        if (migration)
         {
-            if (migration)
-            {
-                new OnLattice2DCells.CellFunctions().lymphociteMigration(availableSpaces, this, migration, 0); //Doing the above 2 lines in 1 line
-            }
-            else if (!migration)
-            {
-                if (lymphocitePopulation == 0)
-                {
-                    return availableSpaces;
-                }
-                new OnLattice2DCells.CellFunctions().lymphociteMigration(availableSpaces, this, migration, lymphocitePopulation);
-            }
+            new OnLattice2DCells.CellFunctions().lymphociteMigration(availableSpaces, this, migration, 0); //Doing the above 2 lines in 1 line
+        }
+        else if (!migration)
+        {
+            new OnLattice2DCells.CellFunctions().lymphociteMigration(availableSpaces, this, migration, lymphocitePopulation);
         }
         return availableSpaces;
     }
@@ -669,92 +700,74 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
 
     public static void main (String[] args) throws Exception
     {
+        className = "Figure2";
+        System.out.println(className + ":\nRadiation Dose: " + radiationDose);
 
-        for (figureCount = 1; figureCount < 6; figureCount++)
+        int x = 100;
+        int y = 100;
+        int timesteps = 1000;
+        GridWindow win = new GridWindow(x, y, 5);
+        OnLattice2DCells.OnLattice2DGrid model = new OnLattice2DCells.OnLattice2DGrid(x, y);
+
+        new Lymphocytes().Lymphocytes();
+        new TumorCells().TumorCells();
+        new DoomedCells().DoomedCells();
+
+        model.Init(win, model);
+
+        int timestep = 0;
+        model.saveToCSV(fullPath, false, timestep);
+        timestep++;
+        //Lymphocytes.dieProb = CellFunctions.survivingFraction("radiationSensitivityOfLymphocytesAlpha", "radiationSensitivityOfLymphocytesBeta");
+        //TumorCells.dieProb = CellFunctions.survivingFraction("radiationSensitivityOfTumorCellsAlpha", "radiationSensitivityOfTumorCellsBeta");
+
+        GifMaker gif = new GifMaker(directory + "TrialRun.gif",1,false);
+
+        for (int i = 0; i < timesteps; i++) //this for loop loops over all the time steps. The model stops running after we finish all timesteps.
         {
-            if (figureCount == 1)
+            //System.out.println("done with this round");
+            win.TickPause(10);
+            if (model.Pop() == 0)
             {
-                className = "Figure3";
-            }
-            else if (figureCount == 2)
-            {
-                className = "Figure3";
-            }
-            else if (figureCount == 3)
-            {
-                className = "Figure4";
-            }
-            else if (figureCount == 4)
-            {
-                className = "Figure5";
-            }
-            else if (figureCount == 5)
-            {
-                className = "Figure6";
-            }
-            else if (figureCount == 6)
-            {
-                System.exit(0);
-            }
-
-            for (radiationDose = 10; radiationDose <= 20; radiationDose += 5)
-            {
-                System.out.println(className + ":\nRadiation Dose: " + radiationDose);
-
-                int x = 100;
-                int y = 100;
-                int timesteps = 1000;
-                GridWindow win = new GridWindow(x, y, 5);
-                OnLattice2DCells.OnLattice2DGrid model = new OnLattice2DCells.OnLattice2DGrid(x, y);
-
-                new Lymphocytes().Lymphocytes();
-                new TumorCells().TumorCells();
-                new DoomedCells().DoomedCells();
-
+                timesteps += timestep - 1;
                 model.Init(win, model);
-
-                int timestep = 0;
-                model.saveToCSV(fullPath, false, timestep);
+                timestep = 0;
+                model.saveToCSV(fullPath, true, timestep);
                 timestep++;
-                //Lymphocytes.dieProb = CellFunctions.survivingFraction("radiationSensitivityOfLymphocytesAlpha", "radiationSensitivityOfLymphocytesBeta");
-                //TumorCells.dieProb = CellFunctions.survivingFraction("radiationSensitivityOfTumorCellsAlpha", "radiationSensitivityOfTumorCellsBeta");
-
-                GifMaker gif = new GifMaker(directory + "TrialRun.gif",1,false);
-
-                for (int i = 0; i < timesteps; i++) //this for loop loops over all the time steps. The model stops running after we finish all timesteps.
-                {
-                    win.TickPause(10);
-                    if (model.Pop() == 0)
-                    {
-                        timesteps += timestep - 1;
-
-                        model.Init(win, model);
-                        timestep = 0;
-                        model.saveToCSV(fullPath, true, timestep);
-                        timestep++;
-                    }
-                    //I considered adding checks for if either lymphocytes or tumor cells only reaches zero, but not necessary
-
-                    CellFunctions.getTumorCellsProb();
-                    model.StepCells();
-                    model.getAvailableSpaces(win, true, 0);
-                    model.DrawModel(win, gif);
-
-                    model.saveToCSV(fullPath, true, timestep);
-                    timestep++;
-                    //System.out.println("done with this round");
-                }
-
-                //gif.Close();
-
-                model.printPopulation(Lymphocytes.name, Lymphocytes.colorIndex, Lymphocytes.count);
-                model.printPopulation(TumorCells.name, TumorCells.colorIndex, TumorCells.count);
-                model.printPopulation(DoomedCells.name, DoomedCells.colorIndex, DoomedCells.count);
-                System.out.println("Population Total: " + model.Pop());
-                System.out.println("Unoccupied Spaces: " + model.getAvailableSpaces(win, false, 0).size());
-                System.out.println();
-                System.exit(0);
             }
+            //I considered adding checks for if either lymphocytes or tumor cells only reaches zero, but not necessary
+
+            if (TumorCells.count > 1000)
+            {
+                radiationDose = 10;
+            }
+            else
+            {
+                radiationDose = 0;
+            }
+            if (radiationDose != previousRadiationDose)
+            {
+                //run lymphocytes method
+            }
+            int previousRadiationDose = radiationDose;
+
+            CellFunctions.getTumorCellsProb();
+            model.StepCells();
+            model.getAvailableSpaces(win, true, 0); //Lymphocyte Migration
+            model.DrawModel(win, gif); //get occupied spaces to use for stepcells method, rerun if model pop goes to 0
+
+            model.saveToCSV(fullPath, true, timestep);
+            timestep++;
         }
+
+        //gif.Close();
+
+        model.printPopulation(Lymphocytes.name, Lymphocytes.colorIndex, Lymphocytes.count);
+        model.printPopulation(TumorCells.name, TumorCells.colorIndex, TumorCells.count);
+        model.printPopulation(DoomedCells.name, DoomedCells.colorIndex, DoomedCells.count);
+        System.out.println("Population Total: " + model.Pop());
+        System.out.println("Unoccupied Spaces: " + model.getAvailableSpaces(win, false, 0).size());
+        System.out.println();
+        //System.exit(0);
     }
 }
