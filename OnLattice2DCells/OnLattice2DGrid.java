@@ -168,7 +168,7 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DCells.OnLattice2DGri
         try
         {
             Class<?> clazz = Class.forName(className);
-            Field field = clazz.getDeclaredField("tumorInfiltratioinRate");
+            Field field = clazz.getDeclaredField("tumorInfiltrationRate");
             Object value = field.get(null); // Static field, use 'null' for static access
             return (Double) value;
         }
@@ -285,6 +285,21 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DCells.OnLattice2DGri
             throw new RuntimeException(e);
         }
     }
+
+    public static void getTriggeringCellsProb() throws Exception
+    {
+        try
+        {
+            //double activation = Math.tanh((1 - TumorCells.survivingFractionT) * volumeDamagedTumorCells);
+            //make sure suvivingFractionT is accurate, so this method should be run after tumorProb method
+            //TriggeringCells.survivingFractionI = CellFunctions.getSurvivingFraction(OnLattice2DGrid.radiationDose, TriggeringCells.fullName, "radiationSensitivityOfLymphocytesAlpha", "radiationSensitivityOfLymphocytesBeta");
+            //Lymphocytes.dieProb = 1 - Lymphocytes.survivingFractionL + (Lymphocytes.survivingFractionL * Lymphocytes.decayConstantOfL);
+        }
+        catch (Exception e)
+        {
+            throw new RuntimeException(e);
+        }
+    }
 }
 
 class Lymphocytes
@@ -366,6 +381,31 @@ class DoomedCells
     }
 }
 
+class TriggeringCells
+{
+    public static String name = "Triggering Cells";
+    public static double dieProb;
+    public static double divProb;
+    public static int colorIndex = 6;
+    public static int count;
+    public static String fullName;
+    public static double survivingFractionI;;
+
+    public void TriggeringCells()
+    {
+        count = 0;
+        try
+        {
+            fullName = "OnLattice2DCells." + OnLattice2DGrid.className;
+
+        }
+        catch (Exception e)
+        {
+            throw new RuntimeException(e);
+        }
+    }
+}
+
 abstract class Figure2 implements ModelParameters
 {
     public static double radiationSensitivityOfTumorCellsAlpha = 0; //null
@@ -373,13 +413,13 @@ abstract class Figure2 implements ModelParameters
     public static double radiationSensitivityOfLymphocytesAlpha = 0; //null
     public static double radiationSensitivityOfLymphocytesBeta = 0; //null
     public static double tumorGrowthRate = 0.217;
-    public static double tumorInfiltratioinRate = 0.1;
+    public static double tumorInfiltrationRate = 0.1;
     public static double rateOfCellKilling = 0.05;
     public static double decayConstantOfD = 0.039;
     public static double decayConstantOfL = 0.335;
     public static double recoveryConstantOfA = 0.039;
     public static double radiationInducedInfiltration = 0; //null
-    public static double immuneSuppressionEffect = 0.012;
+    public static double immuneSuppressionEffect = 0.014;
 }
 
 abstract class Figure3 implements ModelParameters
@@ -389,7 +429,7 @@ abstract class Figure3 implements ModelParameters
     public static double radiationSensitivityOfLymphocytesAlpha = 0.182;
     public static double radiationSensitivityOfLymphocytesBeta = 0.143;
     public static double tumorGrowthRate = 0.217;
-    public static double tumorInfiltratioinRate = 0.5;
+    public static double tumorInfiltrationRate = 0.05;
     public static double rateOfCellKilling = 0.135;
     public static double decayConstantOfD = 0.045;
     public static double decayConstantOfL = 0.045;
@@ -405,7 +445,7 @@ abstract class Figure4 implements ModelParameters
     public static double radiationSensitivityOfLymphocytesAlpha = 0.182;
     public static double radiationSensitivityOfLymphocytesBeta = 0.143;
     public static double tumorGrowthRate = 0.217;
-    public static double tumorInfiltratioinRate = 0.5;
+    public static double tumorInfiltrationRate = 0.5;
     public static double rateOfCellKilling = 0.135;
     public static double decayConstantOfD = 0.045;
     public static double decayConstantOfL = 0.045;
@@ -421,7 +461,7 @@ abstract class Figure5 implements ModelParameters
     public static double radiationSensitivityOfLymphocytesAlpha = 0.182;
     public static double radiationSensitivityOfLymphocytesBeta = 0.143;
     public static double tumorGrowthRate = 0.217;
-    public static double tumorInfiltratioinRate = 0.5;
+    public static double tumorInfiltrationRate = 0.5;
     public static double rateOfCellKilling = 0.135;
     public static double decayConstantOfD = 0.045;
     public static double decayConstantOfL = 0.045;
@@ -437,7 +477,7 @@ abstract class Figure6 implements ModelParameters
     public static double radiationSensitivityOfLymphocytesAlpha = 0.182;
     public static double radiationSensitivityOfLymphocytesBeta = 0.143;
     public static double tumorGrowthRate = 0.03;
-    public static double tumorInfiltratioinRate = 0.1;
+    public static double tumorInfiltrationRate = 0.1;
     public static double rateOfCellKilling = 0.004;
     public static double decayConstantOfD = 0.045;
     public static double decayConstantOfL = 0.056;
@@ -464,10 +504,11 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
         super(x, y, OnLattice2DCells.CellFunctions.class);
     }
 
-    public void setRadiationDose() throws Exception {
-        if (TumorCells.count > 50)
+    public void setRadiationDose() throws Exception
+    {
+        if (TumorCells.count > 500)
         {
-            radiationDose = 10;
+            radiationDose = 0;
         }
         else
         {
@@ -482,7 +523,7 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
 
     public void Init(GridWindow win, OnLattice2DGrid model) throws Exception {
         //model.NewAgentSQ(model.xDim/2, model.yDim/2).Init(TumorCells.colorIndex);
-        int tumorSize = 50;
+        int tumorSize = 1;
         int lymphocitePopulation = 0;
         if (tumorSize + lymphocitePopulation > model.xDim * model.yDim)
         {
@@ -702,8 +743,9 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
 
     public static void main (String[] args) throws Exception
     {
-        className = "Figure3";
-        System.out.println(className + ":\nRadiation Dose: " + radiationDose);
+        className = "Figure2";
+        System.out.println(className);
+        //System.out.println(className + ":\nRadiation Dose: " + radiationDose);
 
         int x = 100;
         int y = 100;
@@ -722,7 +764,7 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
         model.saveToCSV(fullPath, false, timestep);
         timestep++;
 
-        GifMaker gif = new GifMaker(directory + "TrialRun.gif",1,false);
+        GifMaker gif = new GifMaker(directory + "TrialRunGif.gif",1,false);
 
         for (int i = 0; i < timesteps; i++) //this for loop loops over all the time steps. The model stops running after we finish all timesteps.
         {
@@ -738,7 +780,16 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
 
             CellFunctions.getTumorCellsProb();
             model.StepCells();
-            model.getAvailableSpaces(win, true, 0); //Lymphocyte Migration
+
+            if (Lymphocytes.count < TumorCells.count)
+            {
+                model.getAvailableSpaces(win, true, 0); //Lymphocyte Migration
+            }
+            else
+            {
+                model.getAvailableSpaces(win, true, 0);
+            }
+
             model.DrawModel(win, gif); //get occupied spaces to use for stepCells method, rerun if model pop goes to 0
 
             model.saveToCSV(fullPath, true, timestep);
@@ -746,7 +797,7 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
             model.setRadiationDose();
         }
 
-        //gif.Close();
+        gif.Close();
 
         model.printPopulation(Lymphocytes.name, Lymphocytes.colorIndex, Lymphocytes.count);
         model.printPopulation(TumorCells.name, TumorCells.colorIndex, TumorCells.count);
