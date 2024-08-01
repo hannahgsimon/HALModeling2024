@@ -9,6 +9,5 @@ public interface Cells
     double divProb();
     int colorIndex();
     int count();
-
-    //public double survivingFraction();
+    //String fullName = "OnLattice2DCells." + OnLattice2DGrid.className;
 }

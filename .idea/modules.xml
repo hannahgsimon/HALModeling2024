@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/Modeling2024.iml" filepath="$PROJECT_DIR$/Modeling2024.iml" />
+      <module fileurl="file://$PROJECT_DIR$/HALModeling2024.iml" filepath="$PROJECT_DIR$/HALModeling2024.iml" />
     </modules>
   </component>
 </project>
