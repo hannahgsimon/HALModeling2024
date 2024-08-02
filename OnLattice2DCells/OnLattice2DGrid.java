@@ -40,25 +40,43 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DCells.OnLattice2DGri
 
         else if (this.color == Util.CategorialColor(TumorCells.colorIndex))
         {
-            if (G.rng.Double() < TumorCells.dieProb)
+            if (G.rng.Double() < TumorCells.dieProbRad)
             {
-                this.color = Util.CategorialColor(DoomedCells.colorIndex);
+                this.color = Util.CategorialColor(DoomedCells.colorIndexRad);
                 TumorCells.count--;
-                DoomedCells.count++;
+                DoomedCells.countRad++;
             }
-            else if (G.rng.Double() < (TumorCells.dieProb + TumorCells.divProb))
+            else if (G.rng.Double() < (TumorCells.dieProbRad + TumorCells.dieProbImm))
+            {
+                this.color = Util.CategorialColor(DoomedCells.colorIndexImm);
+                TumorCells.count--;
+                DoomedCells.countImm++;
+            }
+            else if (G.rng.Double() < (TumorCells.dieProbRad + TumorCells.dieProbImm + TumorCells.divProb))
             {
                 mapEmptyHood();
             }
         }
 
-        else if (this.color == Util.CategorialColor(DoomedCells.colorIndex))
+        else if (this.color == Util.CategorialColor(DoomedCells.colorIndexRad) || this.color ==  Util.CategorialColor(DoomedCells.colorIndexImm))
         {
             if (G.rng.Double() < DoomedCells.dieProb)
             {
-                DoomedCells.count--;
                 Dispose();
+                if (this.color == Util.CategorialColor(DoomedCells.colorIndexRad))
+                {
+                    DoomedCells.countRad--;
+                }
+                if (this.color == Util.CategorialColor(DoomedCells.colorIndexImm))
+                {
+                    DoomedCells.countImm--;
+                }
             }
+        }
+
+        else if (this.color == Util.CategorialColor(TriggeringCells.colorIndex))
+        {
+
         }
 
     }
@@ -73,12 +91,13 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DCells.OnLattice2DGri
         }
     }
 
-    public void lymphociteMigration(List<int[]> availableSpaces, OnLattice2DGrid G, boolean migration, int lymphocitePopulation)
+    public void lymphociteMigration(List<int[]> availableSpaces, OnLattice2DGrid G, boolean migration, int lymphocitePopulation) throws Exception
     {
         int newLymphocytes = 0;
         if (migration)
         {
             newLymphocytes = (int) (Lymphocytes.tumorInfiltrationRate * TumorCells.count);
+            //newLymphocytes = (int) (Lymphocytes.tumorInfiltrationRate * TumorCells.count + getRadiationReducedInfiltration(Lymphocytes.fullName));
         }
         else if (!migration)
         {
@@ -192,7 +211,7 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DCells.OnLattice2DGri
         }
     }
 
-    public static double getPrimaryImmuneResponse(String className, String rateOfCellKilling, String immuneSuppressionEffect) throws Exception
+    public static double getPrimaryImmuneResponse(String className) throws Exception
     {
         try
         {
@@ -201,10 +220,10 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DCells.OnLattice2DGri
 
             Class<?> clazz = Class.forName(className);
 
-            Field field1 = clazz.getDeclaredField(rateOfCellKilling);
+            Field field1 = clazz.getDeclaredField("rateOfCellKilling");
             Object value1 = field1.get(null);
 
-            Field field2 = clazz.getDeclaredField(immuneSuppressionEffect);
+            Field field2 = clazz.getDeclaredField("immuneSuppressionEffect");
             Object value2 = field2.get(null);
 
             return (((Double) value1 * Lymphocytes.count) / (1 + (((Double) value2 * Math.pow(TumorCells.count, ((double) 2 / 3)) * Lymphocytes.count) / (1 + concentrationAntiPD1_PDL1))));
@@ -226,6 +245,18 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DCells.OnLattice2DGri
             System.err.println("Error during reflection: " + e.getMessage());
             e.printStackTrace();
             throw e;
+        }
+    }
+
+    public static double getSecondaryImmuneResponse(String className)
+    {
+        double secondaryImmuneResponse = 0;
+        double concentrationAntiCTLA4 = 0;
+        double sensitivityFactorZs;
+
+        for (int i = 0, i < timestep, i++)
+        {
+            secondaryImmuneResponse += sensitivityFactorZs * ((1 + concentrationAntiCTLA4) / (1 + concentrationAntiCTLA4)) *
         }
     }
 
@@ -271,13 +302,43 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DCells.OnLattice2DGri
         }
     }
 
+    public static double getRadiationReducedInfiltration(String className) throws Exception
+    {
+        try
+        {
+            Class<?> clazz = Class.forName(className);
+            Field field = clazz.getDeclaredField("radiationReducedInfiltration");
+            Object value = field.get(null);
+            return (Double) value;
+        }
+        catch (ClassNotFoundException e)
+        {
+            System.err.println("Class not found: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
+        catch (NoSuchFieldException e)
+        {
+            System.err.println("Field not found: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
+        catch (Exception e)
+        {
+            System.err.println("Error during reflection: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
+    }
+
     public static void getTumorCellsProb() throws Exception
     {
         try
         {
-            double primaryImmuneResponse = CellFunctions.getPrimaryImmuneResponse(TumorCells.fullName, "rateOfCellKilling", "immuneSuppressionEffect");
+            double primaryImmuneResponse = CellFunctions.getPrimaryImmuneResponse(TumorCells.fullName);
             TumorCells.survivingFractionT = CellFunctions.getSurvivingFraction(OnLattice2DGrid.radiationDose, TumorCells.fullName, "radiationSensitivityOfTumorCellsAlpha", "radiationSensitivityOfTumorCellsBeta");
-            TumorCells.dieProb = 1 - TumorCells.survivingFractionT + (TumorCells.survivingFractionT * primaryImmuneResponse);
+            TumorCells.dieProbRad = 1 - TumorCells.survivingFractionT;
+            TumorCells.dieProbImm = TumorCells.survivingFractionT * primaryImmuneResponse;
             TumorCells.divProb = TumorCells.survivingFractionT * (1 - primaryImmuneResponse) * TumorCells.tumorGrowthRate;
         }
         catch (Exception e)
@@ -290,9 +351,10 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DCells.OnLattice2DGri
     {
         try
         {
-            //double activation = Math.tanh((1 - TumorCells.survivingFractionT) * volumeDamagedTumorCells);
-            //make sure suvivingFractionT is accurate, so this method should be run after tumorProb method
-            //TriggeringCells.survivingFractionI = CellFunctions.getSurvivingFraction(OnLattice2DGrid.radiationDose, TriggeringCells.fullName, "radiationSensitivityOfLymphocytesAlpha", "radiationSensitivityOfLymphocytesBeta");
+            double volumeDamagedTumorCells = (double) DoomedCells.countRad / (DoomedCells.countRad + DoomedCells.countImm + TumorCells.count);
+            double activation = Math.tanh((1 - TumorCells.survivingFractionT) * volumeDamagedTumorCells);
+            //make sure survivingFractionI is accurate, so this method should be run after lymphocytes method
+            TriggeringCells.survivingFractionI = Lymphocytes.survivingFractionL;
             //Lymphocytes.dieProb = 1 - Lymphocytes.survivingFractionL + (Lymphocytes.survivingFractionL * Lymphocytes.decayConstantOfL);
         }
         catch (Exception e)
@@ -333,7 +395,8 @@ class Lymphocytes
 class TumorCells
 {
     public static String name = "Tumor Cells";
-    public static double dieProb;
+    public static double dieProbRad;
+    public static double dieProbImm;
     public static double divProb;
     public static int colorIndex = 1;
     public static int count;
@@ -361,13 +424,14 @@ class DoomedCells
     public static String name = "Doomed Cells";
     public static double dieProb;
     public static double divProb = 0;
-    public static int colorIndex = 3;
-    public static int count;
+    public static int colorIndexRad = 3;
+    public static int colorIndexImm = 12;
+    public static int countRad, countImm;
     public static double decayConstantOfD;
 
     public void DoomedCells()
     {
-        count = 0;
+        countRad = 0; countImm = 0;
         try
         {
             String fullName = "OnLattice2DCells." + OnLattice2DGrid.className;
@@ -419,7 +483,7 @@ abstract class Figure2 implements ModelParameters
     public static double decayConstantOfL = 0.335;
     public static double recoveryConstantOfA = 0.039;
     public static double radiationInducedInfiltration = 0; //null
-    public static double immuneSuppressionEffect = 0.014;
+    public static double immuneSuppressionEffect = 0.015;
 }
 
 abstract class Figure3 implements ModelParameters
@@ -570,7 +634,7 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
     public List<int[]> getAvailableSpaces(GridWindow win, boolean migration, int lymphocitePopulation)
     {
         List<int[]> availableSpaces = new ArrayList<>(); //This is a list of arrays, each array will store x- and y-coodinate
-        if (TumorCells.count + DoomedCells.count == this.xDim * this.yDim)
+        if (TumorCells.count + DoomedCells.countRad + DoomedCells.countImm == this.xDim * this.yDim)
         {
             return availableSpaces;
         }
@@ -721,11 +785,11 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
             if (timestep == 0)
             {
 //                writer.write("Timestep," + Lymphocytes.name + "," + TumorCells.name + "," + DoomedCells.name);
-                writer.write("Timestep," + Lymphocytes.name + "," + TumorCells.name + "," + DoomedCells.name + ",Lymphocytes DieProb, Tumor DieProb, Tumor DivProb, Radiation");
+                writer.write("Timestep," + Lymphocytes.name + "," + TumorCells.name + "," + DoomedCells.name + ",Lymphocytes DieProb, Tumor DieProbRad, Tumor DieProbImm, Tumor DivProb, Radiation");
                 writer.newLine();
             }
             //writer.write(timestep + "," + Lymphocytes.count + "," + TumorCells.count + "," + DoomedCells.count);
-            writer.write(timestep + "," + Lymphocytes.count + "," + TumorCells.count + "," + DoomedCells.count + "," + Lymphocytes.dieProb + "," + TumorCells.dieProb + "," + TumorCells.divProb + "," + radiationDose);
+            writer.write(timestep + "," + Lymphocytes.count + "," + TumorCells.count + "," + DoomedCells.countRad + DoomedCells.countImm + "," + Lymphocytes.dieProb + "," + TumorCells.dieProbRad + "," + TumorCells.dieProbImm + "," + TumorCells.divProb + "," + radiationDose);
             writer.newLine();
         }
         catch (IOException e)
@@ -756,6 +820,7 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
         new Lymphocytes().Lymphocytes();
         new TumorCells().TumorCells();
         new DoomedCells().DoomedCells();
+        new TriggeringCells().TriggeringCells();
 
         model.Init(win, model);
         CellFunctions.getLymphocytesProb();
@@ -801,7 +866,7 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
 
         model.printPopulation(Lymphocytes.name, Lymphocytes.colorIndex, Lymphocytes.count);
         model.printPopulation(TumorCells.name, TumorCells.colorIndex, TumorCells.count);
-        model.printPopulation(DoomedCells.name, DoomedCells.colorIndex, DoomedCells.count);
+        model.printPopulation(DoomedCells.name, DoomedCells.colorIndexRad, DoomedCells.countRad + DoomedCells.countImm);
         System.out.println("Population Total: " + model.Pop());
         System.out.println("Unoccupied Spaces: " + model.getAvailableSpaces(win, false, 0).size());
         System.out.println();
