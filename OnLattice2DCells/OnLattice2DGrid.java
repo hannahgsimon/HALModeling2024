@@ -22,9 +22,26 @@ import HAL.Gui.GifMaker;
 class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DCells.OnLattice2DGrid>
 {
     int color;
+    String type;
     public void Init(int colorIndex)
     {
         this.color = Util.CategorialColor(colorIndex);
+        if (colorIndex == Lymphocytes.colorIndex)
+        {
+            this.type = "Lymphocyte";
+        }
+        else if (colorIndex == TumorCells.colorIndex)
+        {
+            this.type = "TumorCell";
+        }
+        else if (colorIndex == DoomedCells.colorIndexRad)
+        {
+            this.type = "DoomedCellRad";
+        }
+        else if (colorIndex == DoomedCells.colorIndexImm)
+        {
+            this.type = "DoomedCellImm";
+        }
     }
 
     public void StepCell()
@@ -584,7 +601,7 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
         previousRadiationDose = radiationDose;
     }
 
-    public void spatialRadiation(GridWindow win)
+    public List<int[]> spatialRadiationArea(GridWindow win)
     {
         int centerX = xDim/2;
         int centerY = yDim/2;
@@ -620,11 +637,11 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
             {
                 if (isInsideCircle(i, j, centerX, centerY, radius))
                 {
-                    win.SetPix(i, j, Util.GREEN);
                     pixelsInCircle.add(new int[]{i, j});
                 }
             }
         }
+        return pixelsInCircle;
     }
 
     public static boolean isInsideCircle(int i, int j, int centerX, int centerY, int radius)
@@ -632,6 +649,24 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
         int dx = i - centerX;
         int dy = j - centerY;
         return dx * dx + dy * dy <= radius * radius;
+    }
+
+    public void spatialRadiationApplied(GridWindow win, List<int[]> pixelsInCircle)
+    {
+        for (int[] pixel : pixelsInCircle)
+        {
+
+            OnLattice2DCells.CellFunctions cell = GetAgent(pixel[0], pixel[1]);
+            if (cell.color == Util.CategorialColor(Lymphocytes.colorIndex))
+            {
+
+            }
+            else if (win.GetPix(pixel[0], pixel[1]) == Util.CategorialColor(TumorCells.colorIndex))
+            {
+
+            }
+        }
+
     }
 
     public void Init(GridWindow win, OnLattice2DGrid model) throws Exception
@@ -897,7 +932,7 @@ public class OnLattice2DGrid extends AgentGrid2D<OnLattice2DCells.CellFunctions>
                 model.setRadiationDose();
                 if (spatialRadiation && radiationDose > 0)
                 {
-                    model.spatialRadiation(win);
+                    model.spatialRadiationApplied(win, model.spatialRadiationArea(win));
                 }
             }
             else if (radiationDose > 0)
