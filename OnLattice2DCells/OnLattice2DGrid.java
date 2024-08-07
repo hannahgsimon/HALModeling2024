@@ -46,11 +46,12 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
         {
             this.color = Util.CategorialColor(Lymphocytes.colorIndex);
             this.dieProb = Lymphocytes.dieProb;
-            this.divProb = Lymphocytes.divProb;
+            this.dieProbRad = 0; this.dieProbImm = 0; this.divProb = 0;
         }
         else if (type == Type.TUMOR)
         {
             this.color = Util.CategorialColor(TumorCells.colorIndex);
+            this.dieProb = 0;
             this.dieProbRad = TumorCells.dieProbRad;
             this.dieProbImm = TumorCells.dieProbImm;
             this.divProb = TumorCells.divProb;
@@ -691,7 +692,6 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
             values[0] = TumorCells.dieProbRad; values[1] = TumorCells.dieProbImm; values[2] = TumorCells.divProb;
         }
 
-
         for (int[] pixel : pixelsInCircle)
         {
             CellFunctions cell = GetAgent(pixel[0], pixel[1]);
@@ -793,7 +793,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
         return availableSpaces;
     }
 
-    public void DrawModel(GridWindow win, GifMaker gif)
+    public void DrawModelandUpdateTumorProb(GridWindow win, GifMaker gif)
     {
         int color;
         for (int i = 0; i < length; i++)
@@ -802,11 +802,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
             if (cell != null)
             {
                 color = cell.color;
-                if (cell.type == CellFunctions.Type.LYMPHOCYTE)
-                {
-                    cell.dieProb = Lymphocytes.dieProb;
-                }
-                else if (cell.type == CellFunctions.Type.TUMOR)
+                if (cell.type == CellFunctions.Type.TUMOR)
                 {
                     cell.dieProbRad = TumorCells.dieProbRad;
                     cell.dieProbImm = TumorCells.dieProbImm;
@@ -935,7 +931,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
         {
             if (timestep == 0)
             {
-                writer.write("Timestep, Type, Color, RadiationDose, DieProb, DieProbRad, DieProbImm, DivProb");
+                writer.write("Timestep, Cell, Type, Color, RadiationDose, DieProb, DieProbRad, DieProbImm, DivProb");
                 writer.newLine();
             }
             for (int i = 0; i < length; i++)
@@ -943,7 +939,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
                 OnLattice2DCells.CellFunctions cell = GetAgent(i);
                 if (cell != null)
                 {
-                    writer.write(timestep + "," + cell.type + "," + cell.color + "," + cell.radiationDose + "," + cell.dieProb + "," + cell.dieProbRad + "," + cell.dieProbImm + "," + cell.divProb);
+                    writer.write(timestep + "," + cell + "," + cell.type + "," + cell.color + "," + cell.radiationDose + "," + cell.dieProb + "," + cell.dieProbRad + "," + cell.dieProbImm + "," + cell.divProb);
                     writer.newLine();
                 }
 //                else
@@ -971,8 +967,8 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
         System.out.println(className);
         //System.out.println(className + ":\nRadiation Dose: " + radiationDose);
 
-        int x = 5;
-        int y = 5;
+        int x = 8;
+        int y = 8;
         int timesteps = 1000;
         GridWindow win = new GridWindow(x, y, 5);
         OnLattice2DGrid model = new OnLattice2DGrid(x, y);
@@ -992,17 +988,17 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
         for (int i = 1; i <= timesteps; i++)
         {
             win.TickPause(1);
-            if (model.Pop() == 0)
+
+            if (radiationTimesteps.contains(i))
             {
-                model.Init(win, model);
-                model.saveCountsToCSV(fullPath1, true, 0);
-                model.saveProbabilitiesToCSV(fullPath2, true, 0, win);
-                i = 1;
+                if (TumorCells.count > 2)
+                {
+                    pixelsInCircle = model.spatialRadiationApplied(win, model.spatialRadiationArea(win), true);
+                }
             }
-            else
+            else if (radiationTimesteps.contains(i - 1))
             {
-                double[] values = CellFunctions.getTumorCellsProb(baseRadiationDose);
-                TumorCells.dieProbRad = values[0]; TumorCells.dieProbImm = values[1]; TumorCells.divProb = values[2];
+                model.spatialRadiationApplied(win, pixelsInCircle, false);
             }
 
             model.StepCells();
@@ -1016,25 +1012,19 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
                 model.getAvailableSpaces(win, true, 0);
             }
 
-            model.DrawModel(win, gif); //get occupied spaces to use for stepCells method, rerun if model pop goes to 0
-
             model.saveCountsToCSV(fullPath1, true, i);
             model.saveProbabilitiesToCSV(fullPath2, true, i, win);
 
-            if (radiationTimesteps.contains(i))
+            double[] values = CellFunctions.getTumorCellsProb(baseRadiationDose);
+            TumorCells.dieProbRad = values[0]; TumorCells.dieProbImm = values[1]; TumorCells.divProb = values[2];
+            model.DrawModelandUpdateTumorProb(win, gif); //get occupied spaces to use for stepCells method, rerun if model pop goes to 0
+
+            if (model.Pop() == 0)
             {
-                if (TumorCells.count > 200)
-                {
-                    pixelsInCircle = model.spatialRadiationApplied(win, model.spatialRadiationArea(win), true);
-                }
-            }
-            else if (radiationTimesteps.contains(i - 1))
-            {
-                model.spatialRadiationApplied(win, pixelsInCircle, false);
-            }
-            else
-            {
-                Lymphocytes.dieProb = CellFunctions.getLymphocytesProb(baseRadiationDose);
+                model.Init(win, model);
+                model.saveCountsToCSV(fullPath1, true, 0);
+                model.saveProbabilitiesToCSV(fullPath2, true, 0, win);
+                i = 1;
             }
         }
 
