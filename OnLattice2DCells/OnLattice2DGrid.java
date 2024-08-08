@@ -16,6 +16,8 @@ import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
 import HAL.Gui.GifMaker;
+import java.util.Random;
+import java.util.Iterator;
 
 //Author: Hannah Simon, hannahgsimon on Git
 
@@ -142,7 +144,7 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
         }
     }
 
-    public void lymphociteMigration(List<int[]> availableSpaces, OnLattice2DGrid G, boolean migration, int lymphocitePopulation) throws Exception
+    public void lymphociteMigration(List<int[]> availableSpaces, OnLattice2DGrid G, boolean migration, int lymphocitePopulation, GridWindow win, List<int[]> tumorSpaces) throws Exception
     {
         int newLymphocytes = 0;
         if (migration)
@@ -154,13 +156,68 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
         {
             newLymphocytes = lymphocitePopulation;
         }
-
         int spacesToPick = Math.min(newLymphocytes, availableSpaces.size()); // Ensure we don’t pick more spaces than available
-        Collections.shuffle(availableSpaces);
 
+        /*Collections.shuffle(availableSpaces);
         for (int i = 0; i < spacesToPick; i++)
         {
             G.NewAgentSQ(availableSpaces.get(i)[0], availableSpaces.get(i)[1]).Init(Type.LYMPHOCYTE);
+        }*/
+
+        int minDim = Math.min(win.xDim, win.yDim);
+        double radiusFraction = 0.2;
+        int neighborhoodRadius = (int) Math.max(1, minDim * radiusFraction); // Ensure radius is at least 1
+
+        //Calculate weights and probabilities for each pixel
+        double[][] probabilities = new double[win.xDim][win.yDim]; //default value of all entries is initially zero
+        double totalProbability = 0;
+        for (int[] availableSpace : availableSpaces)
+        {
+            double weightSum = 0;
+            for (int[] tumorCell : tumorSpaces)
+            {
+                double distance = Math.sqrt(Math.pow(availableSpace[0] - tumorCell[0], 2) + Math.pow(availableSpace[1] - tumorCell[1], 2));
+                if (distance <= neighborhoodRadius)
+                {
+                    double weight = 1.0 / (distance + 1); // Higher weight for closer pixels
+                    weightSum += weight;
+                }
+            }
+            probabilities[availableSpace[0]][availableSpace[1]] = weightSum;
+            totalProbability += weightSum;
+        }
+
+        //Normalize probabilities
+        for (int[] availableSpace : availableSpaces)
+        {
+            probabilities[availableSpace[0]][availableSpace[1]] /= totalProbability;
+
+        }
+
+        //Select `spacesToPick` pixels based on the weighted probability distribution
+        Random random = new Random();
+        List<int[]> selectedPixels = new ArrayList<>();
+
+        while (selectedPixels.size() < spacesToPick)
+        {
+            double rand = random.nextDouble();
+            double cumulativeProbability = 0.0;
+            for (int[] availableSpace : availableSpaces)
+            {
+                cumulativeProbability += probabilities[availableSpace[0]][availableSpace[1]];
+                if (rand < cumulativeProbability)
+                {
+                    selectedPixels.add(availableSpace);
+                    availableSpaces.remove(availableSpace);
+                    break;
+                }
+            }
+        }
+
+        //Lymphocyte Migration
+        for (int[] pixel : selectedPixels)
+        {
+            G.NewAgentSQ(pixel[0], pixel[1]).Init(Type.LYMPHOCYTE);
         }
 
         Lymphocytes.count += spacesToPick;
@@ -624,11 +681,29 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
 
     public List<int[]> spatialRadiationArea(GridWindow win)
     {
-        int centerX = xDim/2;
-        int centerY = yDim/2;
+        //int centerX = xDim/2; int centerY = yDim/2;
         double targetPercentage = 0.5;
-
         int targetPixelsInCircle = (int) (TumorCells.count * targetPercentage);
+
+        int minX = xDim;
+        int maxX = 0;
+        int minY = yDim;
+        int maxY = 0;
+        for (int x = 0; x < xDim; x++)
+        {
+            for (int y = 0; y < yDim; y++)
+            {
+                if (win.GetPix(x, y) == Util.CategorialColor(TumorCells.colorIndex))
+                {
+                    if (x < minX) minX = x;
+                    if (x > maxX) maxX = x;
+                    if (y < minY) minY = y;
+                    if (y > maxY) maxY = y;
+                }
+            }
+        }
+        int centerX = (minX + maxX) / 2;
+        int centerY = (minY + maxY) / 2;
 
         int radius = 0;
         for (int testRadius = 1; testRadius <= xDim; testRadius++)
@@ -677,19 +752,16 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
     {
         int radiationDose;
         double LDieProb;
-        double[] values = new double[3];
 
         if (radiate)
         {
             radiationDose = 10;
             LDieProb = CellFunctions.getLymphocytesProb(radiationDose);
-            values = CellFunctions.getTumorCellsProb(radiationDose);
         }
         else
         {
             radiationDose = baseRadiationDose;
             LDieProb = Lymphocytes.dieProb;
-            values[0] = TumorCells.dieProbRad; values[1] = TumorCells.dieProbImm; values[2] = TumorCells.divProb;
         }
 
         for (int[] pixel : pixelsInCircle)
@@ -697,14 +769,14 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
             CellFunctions cell = GetAgent(pixel[0], pixel[1]);
             if (cell != null)
             {
+                cell.radiationDose = radiationDose;
                 if (cell.type == CellFunctions.Type.LYMPHOCYTE)
                 {
-                    cell.radiationDose = radiationDose;
                     cell.dieProb = LDieProb;
                 }
-                else if (cell.type == CellFunctions.Type.TUMOR)
+                else if (cell.type == CellFunctions.Type.TUMOR && radiate)
                 {
-                    cell.radiationDose = radiationDose;
+                    double[] values = CellFunctions.getTumorCellsProb(radiationDose);
                     cell.dieProbRad = values[0]; cell.dieProbImm = values[1]; cell.divProb = values[2];
                 }
             }
@@ -767,6 +839,8 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
     public List<int[]> getAvailableSpaces(GridWindow win, boolean migration, int lymphocitePopulation) throws Exception
     {
         List<int[]> availableSpaces = new ArrayList<>(); //This is a list of arrays, each array will store x- and y-coodinate
+        List<int[]> tumorSpaces = new ArrayList<>();
+
         if (TumorCells.count + DoomedCells.countRad + DoomedCells.countImm == this.xDim * this.yDim)
         {
             return availableSpaces;
@@ -781,14 +855,18 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
                 availableSpaces.add(new int[]{(int) cell.Xpt(),(int) cell.Ypt()});
                 cell.Dispose();
             }
+            else if (cell != null && cell.type == CellFunctions.Type.TUMOR)
+            {
+                tumorSpaces.add(new int[]{(int) cell.Xpt(),(int) cell.Ypt()});
+            }
         }
         if (migration)
         {
-            new CellFunctions().lymphociteMigration(availableSpaces, this, migration, 0); //Doing the above 2 lines in 1 line
+            new CellFunctions().lymphociteMigration(availableSpaces, this, migration, 0, win, tumorSpaces); //Doing the above 2 lines in 1 line
         }
         else if (!migration)
         {
-            new CellFunctions().lymphociteMigration(availableSpaces, this, migration, lymphocitePopulation);
+            new CellFunctions().lymphociteMigration(availableSpaces, this, migration, lymphocitePopulation, win, tumorSpaces);
         }
         return availableSpaces;
     }
@@ -807,6 +885,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
                     cell.dieProbRad = TumorCells.dieProbRad;
                     cell.dieProbImm = TumorCells.dieProbImm;
                     cell.divProb = TumorCells.divProb;
+                    //If radiating twice in a row, this is not needed only for tumor cells in the circle. But not worth writing code for.
                 }
             }
             else
@@ -934,19 +1013,22 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
                 writer.write("Timestep, Cell, Type, Color, RadiationDose, DieProb, DieProbRad, DieProbImm, DivProb");
                 writer.newLine();
             }
-            for (int i = 0; i < length; i++)
+            if (timestep > 500)
             {
-                OnLattice2DCells.CellFunctions cell = GetAgent(i);
-                if (cell != null)
+                for (int i = 0; i < length; i++)
                 {
-                    writer.write(timestep + "," + cell + "," + cell.type + "," + cell.color + "," + cell.radiationDose + "," + cell.dieProb + "," + cell.dieProbRad + "," + cell.dieProbImm + "," + cell.divProb);
-                    writer.newLine();
-                }
+                    OnLattice2DCells.CellFunctions cell = GetAgent(i);
+                    if (cell != null)
+                    {
+                        writer.write(timestep + "," + cell + "," + cell.type + "," + cell.color + "," + cell.radiationDose + "," + cell.dieProb + "," + cell.dieProbRad + "," + cell.dieProbImm + "," + cell.divProb);
+                        writer.newLine();
+                    }
 //                else
 //                {
 //                    writer.write(timestep + ", ," + win.GetPix(i) + ", , , , , ");
 //                }
 //                writer.newLine();
+                }
             }
         }
         catch (IOException e)
@@ -967,8 +1049,8 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
         System.out.println(className);
         //System.out.println(className + ":\nRadiation Dose: " + radiationDose);
 
-        int x = 8;
-        int y = 8;
+        int x = 30;
+        int y = 30;
         int timesteps = 1000;
         GridWindow win = new GridWindow(x, y, 5);
         OnLattice2DGrid model = new OnLattice2DGrid(x, y);
@@ -994,6 +1076,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
                 if (TumorCells.count > 2)
                 {
                     pixelsInCircle = model.spatialRadiationApplied(win, model.spatialRadiationArea(win), true);
+                    model.saveProbabilitiesToCSV(fullPath2, true, i, win);
                 }
             }
             else if (radiationTimesteps.contains(i - 1))
