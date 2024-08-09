@@ -155,7 +155,6 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
         {
             newLymphocytes = lymphocitePopulation;
         }
-        int spacesToPick = Math.min(newLymphocytes, availableSpaces.size()); // Ensure we don’t pick more spaces than available
 
         /*Collections.shuffle(availableSpaces);
         for (int i = 0; i < spacesToPick; i++)
@@ -164,15 +163,17 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
         }*/
 
         int minDim = Math.min(win.xDim, win.yDim);
-        double radiusFraction = 0.2;
+        double radiusFraction = 0.25;
         int neighborhoodRadius = (int) Math.max(1, minDim * radiusFraction); // Ensure radius is at least 1
 
         //Calculate weights and probabilities for each pixel
         double[][] probabilities = new double[win.xDim][win.yDim]; //default value of all entries is initially zero
         double totalProbability = 0;
+        List<int[]> availableSpacesInRadius = new ArrayList<>();
         for (int[] availableSpace : availableSpaces)
         {
             double weightSum = 0;
+            boolean possible = false;
             for (int[] tumorCell : tumorSpaces)
             {
                 double distance = Math.sqrt(Math.pow(availableSpace[0] - tumorCell[0], 2) + Math.pow(availableSpace[1] - tumorCell[1], 2));
@@ -180,7 +181,12 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
                 {
                     double weight = 1.0 / (distance + 1); // Higher weight for closer pixels
                     weightSum += weight;
+                    possible = true;
                 }
+            }
+            if (possible)
+            {
+                availableSpacesInRadius.add(availableSpace);
             }
             probabilities[availableSpace[0]][availableSpace[1]] = weightSum;
             totalProbability += weightSum;
@@ -200,6 +206,7 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
 //        }
 
         //Select `spacesToPick` pixels based on the weighted probability distribution
+        int spacesToPick = Math.min(newLymphocytes, availableSpacesInRadius.size());
         Random random = new Random();
         List<int[]> selectedPixels = new ArrayList<>();
 
@@ -207,14 +214,15 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
         {
             double rand = totalProbability * random.nextDouble(); //This normalizes the probabilities more efficiently! :)
             double cumulativeProbability = 0.0;
-            for (int[] availableSpace : availableSpaces) //technically would be more efficient to only go through availableSpaces in the radiud
+            for (int[] availableSpaceInRadius : availableSpacesInRadius)
             {
-                cumulativeProbability += probabilities[availableSpace[0]][availableSpace[1]];
+                cumulativeProbability += probabilities[availableSpaceInRadius[0]][availableSpaceInRadius[1]];
                 if (rand < cumulativeProbability)
                 {
-                    selectedPixels.add(availableSpace);
-                    availableSpaces.remove(availableSpace);
-                    totalProbability -= probabilities[availableSpace[0]][availableSpace[1]];
+                    selectedPixels.add(availableSpaceInRadius);
+                    availableSpacesInRadius.remove(availableSpaceInRadius);
+                    availableSpaces.remove(availableSpaceInRadius);
+                    totalProbability -= probabilities[availableSpaceInRadius[0]][availableSpaceInRadius[1]];
                     break;
                 }
             }
@@ -848,8 +856,9 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
         List<int[]> availableSpaces = new ArrayList<>(); //This is a list of arrays, each array will store x- and y-coodinate
         List<int[]> tumorSpaces = new ArrayList<>();
 
-        if (TumorCells.count + DoomedCells.countRad + DoomedCells.countImm == this.xDim * this.yDim)
+        if (TumorCells.count + DoomedCells.countRad + DoomedCells.countImm + TriggeringCells.count == this.xDim * this.yDim)
         {
+            availableSpaces.clear();
             return availableSpaces;
         }
 
@@ -1126,7 +1135,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
         model.printPopulation("Doomed Cells Radiation", DoomedCells.colorIndex, DoomedCells.countRad);
         model.printPopulation("Doomed Cells Immune", DoomedCells.colorIndex, DoomedCells.countImm);
         System.out.println("Population Total: " + model.Pop());
-        System.out.println("Unoccupied Spaces: " + availableSpaces.size());
+        System.out.println("Unoccupied Spaces: " +  availableSpaces.size());
         System.out.println();
     }
 }
