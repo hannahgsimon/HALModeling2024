@@ -17,7 +17,6 @@ import java.io.FileWriter;
 import java.io.IOException;
 import HAL.Gui.GifMaker;
 import java.util.Random;
-import java.util.Iterator;
 
 //Author: Hannah Simon, hannahgsimon on Git
 
@@ -187,40 +186,48 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
             totalProbability += weightSum;
         }
 
-        //Normalize probabilities
-        for (int[] availableSpace : availableSpaces)
-        {
-            probabilities[availableSpace[0]][availableSpace[1]] /= totalProbability;
-
-        }
+//        //Normalize probabilities
+//        for (int[] availableSpace : availableSpaces)
+//        {
+//            probabilities[availableSpace[0]][availableSpace[1]] /= totalProbability;
+//
+//        }
+//        //Check if sum is really 1, to adjust for rounding errors
+//        double totalSum = 0.0;
+//        for (int[] availableSpace : availableSpaces)
+//        {
+//            totalSum += probabilities[availableSpace[0]][availableSpace[1]];
+//        }
 
         //Select `spacesToPick` pixels based on the weighted probability distribution
         Random random = new Random();
         List<int[]> selectedPixels = new ArrayList<>();
 
-        while (selectedPixels.size() < spacesToPick)
+        for (int i = 0; i < spacesToPick; i++)
         {
-            double rand = random.nextDouble();
+            double rand = totalProbability * random.nextDouble(); //This normalizes the probabilities more efficiently! :)
             double cumulativeProbability = 0.0;
-            for (int[] availableSpace : availableSpaces)
+            for (int[] availableSpace : availableSpaces) //technically would be more efficient to only go through availableSpaces in the radiud
             {
                 cumulativeProbability += probabilities[availableSpace[0]][availableSpace[1]];
                 if (rand < cumulativeProbability)
                 {
                     selectedPixels.add(availableSpace);
                     availableSpaces.remove(availableSpace);
+                    totalProbability -= probabilities[availableSpace[0]][availableSpace[1]];
                     break;
                 }
             }
         }
+        //if selectedPixels.size() < spacesToPick, means that no available spaces are within the neighborhoodRadius
 
         //Lymphocyte Migration
         for (int[] pixel : selectedPixels)
         {
             G.NewAgentSQ(pixel[0], pixel[1]).Init(Type.LYMPHOCYTE);
+            Lymphocytes.count++;
         }
 
-        Lymphocytes.count += spacesToPick;
     }
 
     public static double getDecayConstant(String className, String decayConstant) throws Exception
@@ -1049,8 +1056,8 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
         System.out.println(className);
         //System.out.println(className + ":\nRadiation Dose: " + radiationDose);
 
-        int x = 30;
-        int y = 30;
+        int x = 100;
+        int y = 100;
         int timesteps = 1000;
         GridWindow win = new GridWindow(x, y, 5);
         OnLattice2DGrid model = new OnLattice2DGrid(x, y);
@@ -1066,6 +1073,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
         model.saveProbabilitiesToCSV(fullPath2, false, 0, win);
 
         GifMaker gif = new GifMaker(directory + "TrialRunGif.gif",1,false);
+        List<int[]> availableSpaces = new ArrayList<>();
 
         for (int i = 1; i <= timesteps; i++)
         {
@@ -1088,11 +1096,11 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
 
             if (Lymphocytes.count < TumorCells.count)
             {
-                model.getAvailableSpaces(win, true, 0); //Lymphocyte Migration
+                availableSpaces = model.getAvailableSpaces(win, true, 0); //Lymphocyte Migration
             }
             else
             {
-                model.getAvailableSpaces(win, true, 0);
+                availableSpaces = model.getAvailableSpaces(win, true, 0);
             }
 
             model.saveCountsToCSV(fullPath1, true, i);
@@ -1118,7 +1126,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
         model.printPopulation("Doomed Cells Radiation", DoomedCells.colorIndex, DoomedCells.countRad);
         model.printPopulation("Doomed Cells Immune", DoomedCells.colorIndex, DoomedCells.countImm);
         System.out.println("Population Total: " + model.Pop());
-        System.out.println("Unoccupied Spaces: " + model.getAvailableSpaces(win, false, 0).size());
+        System.out.println("Unoccupied Spaces: " + availableSpaces.size());
         System.out.println();
     }
 }
