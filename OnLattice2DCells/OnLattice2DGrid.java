@@ -135,12 +135,14 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
         {
             if (G.rng.Double() < this.dieProb)
             {
-                //Dispose();
-                //TriggeringCells.count--;
+                Dispose();
+                TriggeringCells.count--;
             }
             else if (G.rng.Double() < (this.dieProb + this.activateProb))
             {
-
+                //something else should happen...
+                Dispose();
+                TriggeringCells.count--;
             }
         }
 
@@ -156,24 +158,23 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
         }
     }
 
-    public void lymphociteMigration(List<int[]> availableSpaces, OnLattice2DGrid G, boolean migration, int lymphocitePopulation, GridWindow win, List<int[]> tumorSpaces) throws Exception
+    public void lymphociteMigration(List<int[]> availableSpaces, OnLattice2DGrid G, GridWindow win, List<int[]> tumorSpaces) throws Exception
     {
-        int newLymphocytes = 0;
-        if (migration)
+        double volumeDamagedTumorCells = (double) DoomedCells.countRad / (DoomedCells.countRad + DoomedCells.countImm + TumorCells.count);
+        double survivingFractionT;
+        if (OnLattice2DGrid.currentRadiationDose == OnLattice2DGrid.baseRadiationDose)
         {
-            newLymphocytes = (int) (Lymphocytes.tumorInfiltrationRate * TumorCells.count);
-            //newLymphocytes = (int) (Lymphocytes.tumorInfiltrationRate * TumorCells.count + getRadiationReducedInfiltration(Lymphocytes.fullName));
+            survivingFractionT = getSurvivingFraction(OnLattice2DGrid.baseRadiationDose, "radiationSensitivityOfTumorCellsAlpha", "radiationSensitivityOfTumorCellsBeta");
         }
-        else if (!migration)
+        else
         {
-            newLymphocytes = lymphocitePopulation;
+            double survivingFractionTUnradiated = getSurvivingFraction(OnLattice2DGrid.baseRadiationDose, "radiationSensitivityOfTumorCellsAlpha", "radiationSensitivityOfTumorCellsBeta");
+            double survivingFractionTRadiated = getSurvivingFraction(OnLattice2DGrid.currentRadiationDose, "radiationSensitivityOfTumorCellsAlpha", "radiationSensitivityOfTumorCellsBeta");
+            survivingFractionT = (TumorCells.countRadiated * survivingFractionTRadiated + (TumorCells.count - TumorCells.countRadiated) * survivingFractionTUnradiated) / TumorCells.count;
         }
 
-        /*Collections.shuffle(availableSpaces);
-        for (int i = 0; i < spacesToPick; i++)
-        {
-            G.NewAgentSQ(availableSpaces.get(i)[0], availableSpaces.get(i)[1]).Init(Type.LYMPHOCYTE);
-        }*/
+        double activation = Math.tanh((1 - survivingFractionT) * volumeDamagedTumorCells);
+        int newLymphocytes = (int) (Lymphocytes.tumorInfiltrationRate * TumorCells.count + getRadiationInducedInfiltration() * activation * TriggeringCells.count * TumorCells.count);
 
         int minDim = Math.min(win.xDim, win.yDim);
         double radiusFraction = 0.25;
@@ -205,19 +206,6 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
             totalProbability += weightSum;
         }
 
-//        //Normalize probabilities
-//        for (int[] availableSpace : availableSpaces)
-//        {
-//            probabilities[availableSpace[0]][availableSpace[1]] /= totalProbability;
-//
-//        }
-//        //Check if sum is really 1, to adjust for rounding errors
-//        double totalSum = 0.0;
-//        for (int[] availableSpace : availableSpaces)
-//        {
-//            totalSum += probabilities[availableSpace[0]][availableSpace[1]];
-//        }
-
         //Select `spacesToPick` pixels based on the weighted probability distribution
         int spacesToPick = Math.min(newLymphocytes, availableSpacesInRadius.size());
         Random random = new Random();
@@ -234,7 +222,6 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
                 {
                     selectedPixels.add(availableSpaceInRadius);
                     availableSpacesInRadius.remove(availableSpaceInRadius);
-                    availableSpaces.remove(availableSpaceInRadius);
                     totalProbability -= probabilities[availableSpaceInRadius[0]][availableSpaceInRadius[1]];
                     break;
                 }
@@ -248,7 +235,25 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
             G.NewAgentSQ(pixel[0], pixel[1]).Init(Type.LYMPHOCYTE);
             Lymphocytes.count++;
         }
+    }
 
+    public void randomInitialization(List<int[]> availableSpaces, OnLattice2DGrid G, int cellPopulation, Type type)
+    {
+        availableSpaces.remove(new int[]{0, 0});
+        int spacesToPick = Math.min(cellPopulation, availableSpaces.size());
+        Collections.shuffle(availableSpaces);
+        for (int i = 0; i < spacesToPick; i++)
+        {
+            G.NewAgentSQ(availableSpaces.get(i)[0], availableSpaces.get(i)[1]).Init(type);
+        }
+        if (type == Type.LYMPHOCYTE)
+        {
+            Lymphocytes.count += spacesToPick;
+        }
+        else if (type == Type.TRIGGERING)
+        {
+            TriggeringCells.count += spacesToPick;
+        }
     }
 
     public static double getDecayConstant(String decayConstant) throws Exception
@@ -480,10 +485,6 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
     {
         try
         {
-            double volumeDamagedTumorCells = (double) DoomedCells.countRad / (DoomedCells.countRad + DoomedCells.countImm + TumorCells.count);
-            double survivingFractionT = getSurvivingFraction(radiationDose, "radiationSensitivityOfTumorCellsAlpha", "radiationSensitivityOfTumorCellsBeta");
-            double activation = Math.tanh((1 - survivingFractionT) * volumeDamagedTumorCells);
-            //activation and survivingfractionT is supposed to be used for migration, not prob!!
             double survivingFractionL = getSurvivingFraction(radiationDose,"radiationSensitivityOfLymphocytesAlpha", "radiationSensitivityOfLymphocytesBeta");
             return 1 - survivingFractionL + (survivingFractionL * Lymphocytes.decayConstantOfL);
         }
@@ -566,12 +567,12 @@ class TumorCells
     public static double dieProbImm;
     public static double divProb;
     public static int colorIndex = 1;
-    public static int count;
+    public static int count, countRadiated;
     public static double tumorGrowthRate;
 
     public void TumorCells()
     {
-        count = 0;
+        count = 0; countRadiated = 0;
         try
         {
             tumorGrowthRate = CellFunctions.getTumorGrowthRate();
@@ -615,7 +616,7 @@ class TriggeringCells
     public static double dieProb;
     public static double divProb;
     public static double activateProb;
-    public static int colorIndex = 6;
+    public static int colorIndex = 2;
     public static int count;
     public static double recoveryConstantOfA;;
 
@@ -720,7 +721,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
 
     public static String className = "Figure3";
     public static String fullName = "OnLattice2DCells." + className;
-    public static int baseRadiationDose;
+    public static int baseRadiationDose, currentRadiationDose;
     public static List<Integer> radiationTimesteps = List.of(100, 200, 300, 500, 800);
     public static boolean spatialRadiation = true;
 
@@ -808,18 +809,22 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
 
     public List<int[]> spatialRadiationApplied(GridWindow win, List<int[]> pixelsInCircle, boolean radiate) throws Exception
     {
-        int radiationDose;
         double LDieProb;
+        double[] Tvalues = new double[3];
+        double[] Avalues = new double[2];
 
         if (radiate)
         {
-            radiationDose = 10;
-            LDieProb = CellFunctions.getLymphocytesProb(radiationDose);
+            currentRadiationDose = 10;
+            LDieProb = CellFunctions.getLymphocytesProb(currentRadiationDose);
+            Tvalues = CellFunctions.getTumorCellsProb(currentRadiationDose);
+            Avalues = CellFunctions.getTriggeringCellsProb(currentRadiationDose);
         }
         else
         {
-            radiationDose = baseRadiationDose;
+            currentRadiationDose = baseRadiationDose;
             LDieProb = Lymphocytes.dieProb;
+            TumorCells.countRadiated = 0;
         }
 
         for (int[] pixel : pixelsInCircle)
@@ -827,19 +832,19 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
             CellFunctions cell = GetAgent(pixel[0], pixel[1]);
             if (cell != null)
             {
-                cell.radiationDose = radiationDose;
+                cell.radiationDose = currentRadiationDose;
                 if (cell.type == CellFunctions.Type.LYMPHOCYTE)
                 {
                     cell.dieProb = LDieProb;
                 }
-                else if (cell.type == CellFunctions.Type.TUMOR && radiate)
+                if (radiate && cell.type == CellFunctions.Type.TUMOR)
                 {
-                    double[] values = CellFunctions.getTumorCellsProb(radiationDose);
-                    cell.dieProbRad = values[0]; cell.dieProbImm = values[1]; cell.divProb = values[2];
+                    cell.dieProbRad = Tvalues[0]; cell.dieProbImm = Tvalues[1]; cell.divProb = Tvalues[2];
+                    TumorCells.countRadiated++;
                 }
-                else if (cell.type == CellFunctions.Type.TRIGGERING)
+                if (radiate && cell.type == CellFunctions.Type.TRIGGERING)
                 {
-
+                    TriggeringCells.dieProb = Avalues[1]; TriggeringCells.activateProb = Avalues[1];
                 }
             }
         }
@@ -849,24 +854,32 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
     public void Init(GridWindow win, OnLattice2DGrid model) throws Exception
     {
         //model.NewAgentSQ(model.xDim/2, model.yDim/2).Init(TumorCells.colorIndex);
-        int tumorSize = 1;
         int lymphocitePopulation = 0;
-        if (tumorSize + lymphocitePopulation > model.xDim * model.yDim)
+        int triggeringPopulation = 50;
+        int tumorSize = 1;
+        if (lymphocitePopulation + triggeringPopulation + tumorSize > model.xDim * model.yDim)
         {
-            System.err.println("Error: Number of tumor and lymphocite cells exceeds grid size.\n" +
+            System.err.println("Error: Number of cells exceeds grid size.\n" +
                     "Maximum Grid Capacity: " + (model.xDim * model.yDim) + " cells");
             System.exit(0);
         }
 
-        baseRadiationDose = 0;
+        baseRadiationDose = 0; currentRadiationDose = 0;
         Lymphocytes.dieProb = CellFunctions.getLymphocytesProb(baseRadiationDose);
         if (lymphocitePopulation > 0)
         {
-            getAvailableSpaces(win, false, lymphocitePopulation);
+            getAvailableSpaces(win, false, lymphocitePopulation, CellFunctions.Type.LYMPHOCYTE);
         }
 
-        double[] values = CellFunctions.getTumorCellsProb(baseRadiationDose);
-        TumorCells.dieProbRad = values[0]; TumorCells.dieProbImm = values[1]; TumorCells.divProb = values[2];
+        double[] Avalues = CellFunctions.getTriggeringCellsProb(baseRadiationDose);
+        TriggeringCells.dieProb = Avalues[1]; TriggeringCells.activateProb = Avalues[1];
+        if (triggeringPopulation > 0)
+        {
+            getAvailableSpaces(win, false, triggeringPopulation, CellFunctions.Type.TRIGGERING);
+        }
+
+        double[] Tvalues = CellFunctions.getTumorCellsProb(baseRadiationDose);
+        TumorCells.dieProbRad = Tvalues[0]; TumorCells.dieProbImm = Tvalues[1]; TumorCells.divProb = Tvalues[2];
 
         if (tumorSize > 0)
         {
@@ -898,7 +911,8 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
         }
     }
 
-    public List<int[]> getAvailableSpaces(GridWindow win, boolean migration, int lymphocitePopulation) throws Exception
+    public List<int[]> getAvailableSpaces(GridWindow win, boolean migration, int cellPopulation,
+                                          OnLattice2DCells.CellFunctions.Type type) throws Exception
     {
         List<int[]> availableSpaces = new ArrayList<>(); //This is a list of arrays, each array will store x- and y-coodinate
         List<int[]> tumorSpaces = new ArrayList<>();
@@ -925,11 +939,11 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
         }
         if (migration)
         {
-            new CellFunctions().lymphociteMigration(availableSpaces, this, migration, 0, win, tumorSpaces); //Doing the above 2 lines in 1 line
+            new CellFunctions().lymphociteMigration(availableSpaces, this, win, tumorSpaces);
         }
         else if (!migration)
         {
-            new CellFunctions().lymphociteMigration(availableSpaces, this, migration, lymphocitePopulation, win, tumorSpaces);
+            new CellFunctions().randomInitialization(availableSpaces, this, cellPopulation, type);
         }
         return availableSpaces;
     }
@@ -1134,7 +1148,6 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
         model.saveProbabilitiesToCSV(fullPath2, false, 0, win);
 
         GifMaker gif = new GifMaker(directory + "TrialRunGif.gif",1,false);
-        List<int[]> availableSpaces = new ArrayList<>();
 
         for (int i = 1; i <= timesteps; i++)
         {
@@ -1142,7 +1155,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
 
             if (radiationTimesteps.contains(i))
             {
-                if (TumorCells.count > 2)
+                if (TumorCells.count > 20)
                 {
                     pixelsInCircle = model.spatialRadiationApplied(win, model.spatialRadiationArea(win), true);
                     model.saveProbabilitiesToCSV(fullPath2, true, i, win);
@@ -1154,15 +1167,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
             }
 
             model.StepCells();
-
-            if (Lymphocytes.count < TumorCells.count)
-            {
-                availableSpaces = model.getAvailableSpaces(win, true, 0); //Lymphocyte Migration
-            }
-            else
-            {
-                //availableSpaces = model.getAvailableSpaces(win, true, 0);
-            }
+            model.getAvailableSpaces(win, true, 0, CellFunctions.Type.LYMPHOCYTE); //Lymphocyte Migration
 
             model.saveCountsToCSV(fullPath1, true, i);
             model.saveProbabilitiesToCSV(fullPath2, true, i, win);
@@ -1189,7 +1194,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
         model.printPopulation("Doomed Cells Radiation", DoomedCells.colorIndex, DoomedCells.countRad);
         model.printPopulation("Doomed Cells Immune", DoomedCells.colorIndex, DoomedCells.countImm);
         System.out.println("Population Total: " + model.Pop());
-        System.out.println("Unoccupied Spaces: " +  availableSpaces.size());
+        System.out.println("Unoccupied Spaces: " +  model.getAvailableSpaces(win, false, 0, null).size());
         System.out.println();
     }
 }
