@@ -25,12 +25,12 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
     Type type;
     int color;
     int radiationDose;
+    boolean radiated;
     Double dieProb;
     Double dieProbRad;
     Double dieProbImm;
     Double divProb;
     Double activateProb;
-    Double survivingFractionTLast;
 
     public enum Type
     {
@@ -45,12 +45,20 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
     {
         this.type = type;
         this.radiationDose = OnLattice2DGrid.baseRadiationDose;
+        if (OnLattice2DGrid.baseRadiationDose == 0)
+        {
+            this.radiated = false;
+        }
+        else
+        {
+            this.radiated = true;
+        }
+
         if (type == Type.LYMPHOCYTE)
         {
             this.color = Util.CategorialColor(Lymphocytes.colorIndex);
             this.dieProb = Lymphocytes.dieProb;
             this.dieProbRad = null; this.dieProbImm = null; this.divProb = null; this.activateProb = null;
-            this.survivingFractionTLast = null;
         }
         else if (type == Type.TUMOR)
         {
@@ -60,7 +68,6 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
             this.dieProbImm = TumorCells.dieProbImm;
             this.divProb = TumorCells.divProb;
             this.activateProb = null;
-            this.survivingFractionTLast = null;
         }
         else if (type == Type.TRIGGERING)
         {
@@ -68,16 +75,24 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
             this.dieProb = TriggeringCells.dieProb;
             this.dieProbRad = null; this.dieProbImm = null; this.divProb = null;
             this.activateProb = TriggeringCells.activateProb;
-            this.survivingFractionTLast = TriggeringCells.survivingFractionTLast;
         }
     }
 
     public void InitDoomed (boolean radiation)
     {
+        this.radiationDose = OnLattice2DGrid.baseRadiationDose;
+        if (OnLattice2DGrid.baseRadiationDose == 0)
+        {
+            this.radiated = false;
+        }
+        else
+        {
+            this.radiated = true;
+        }
+
         this.color = Util.CategorialColor(DoomedCells.colorIndex);
         this.dieProb = DoomedCells.dieProb;
         this.dieProbRad = null; this.dieProbImm = null; this.divProb = null; this.activateProb = null;
-        this.survivingFractionTLast = null;
         if (radiation)
         {
             this.type = Type.DOOMEDRAD;
@@ -173,7 +188,7 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
         {
             double survivingFractionTUnradiated = getSurvivingFraction(OnLattice2DGrid.baseRadiationDose, "radiationSensitivityOfTumorCellsAlpha", "radiationSensitivityOfTumorCellsBeta");
             double survivingFractionTRadiated = getSurvivingFraction(OnLattice2DGrid.currentRadiationDose, "radiationSensitivityOfTumorCellsAlpha", "radiationSensitivityOfTumorCellsBeta");
-            survivingFractionT = (TumorCells.countRadiated * survivingFractionTRadiated + (TumorCells.count - TumorCells.countRadiated) * survivingFractionTUnradiated) / TumorCells.count;
+            survivingFractionT = (TumorCells.countRad * survivingFractionTRadiated + (TumorCells.count - TumorCells.countRad) * survivingFractionTUnradiated) / TumorCells.count;
         }
 
         double activation = Math.tanh((1 - survivingFractionT) * volumeDamagedTumorCells);
@@ -511,12 +526,16 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
         }
     }
 
-    public static double[] getTriggeringCellsProb(int radiationDose, double survivingFractionT) throws Exception
+    public static double[] getTriggeringCellsProb(int radiationDose) throws Exception
     {
         try
         {
             double volumeDamagedTumorCells = (double) DoomedCells.countRad / (DoomedCells.countRad + DoomedCells.countImm + TumorCells.count);
-            double activation = Math.tanh((1 - survivingFractionT) * volumeDamagedTumorCells);
+            double survivingFractionTUnradiated = getSurvivingFraction(OnLattice2DGrid.baseRadiationDose, "radiationSensitivityOfTumorCellsAlpha", "radiationSensitivityOfTumorCellsBeta");
+            double survivingFractionTRadiated = getSurvivingFraction(OnLattice2DGrid.appliedRadiationDose, "radiationSensitivityOfTumorCellsAlpha", "radiationSensitivityOfTumorCellsBeta");
+            TriggeringCells.SurvivingFractionTLast = (TumorCells.countRad * survivingFractionTRadiated + (TumorCells.count - TumorCells.countRad) * survivingFractionTUnradiated) / TumorCells.count;
+
+            double activation = Math.tanh((1 - TriggeringCells.SurvivingFractionTLast) * volumeDamagedTumorCells);
             double survivingFractionL = getSurvivingFraction(radiationDose,"radiationSensitivityOfLymphocytesAlpha", "radiationSensitivityOfLymphocytesBeta");
             double survivingFractionI =  survivingFractionL;
             double dieProb = (1 - survivingFractionI) * (1 - TriggeringCells.recoveryConstantOfA);
@@ -563,12 +582,12 @@ class TumorCells
     public static double dieProbImm;
     public static double divProb;
     public static int colorIndex = 1;
-    public static int count, countRadiated;
+    public static int count, countRad;
     public static double tumorGrowthRate;
 
     public void TumorCells()
     {
-        count = 0; countRadiated = 0;
+        count = 0;
         try
         {
             tumorGrowthRate = CellFunctions.getTumorGrowthRate();
@@ -613,7 +632,7 @@ class TriggeringCells
     public static int colorIndex = 2;
     public static int count;
     public static double recoveryConstantOfA;
-    public static double survivingFractionTLast;
+    public static double SurvivingFractionTLast;
 
     public void TriggeringCells()
     {
@@ -621,7 +640,6 @@ class TriggeringCells
         try
         {
             recoveryConstantOfA = CellFunctions.getRecoveryConstantOfA();
-            survivingFractionTLast = CellFunctions.getSurvivingFraction(OnLattice2DGrid.baseRadiationDose, "radiationSensitivityOfTumorCellsAlpha", "radiationSensitivityOfTumorCellsBeta");
         }
         catch (Exception e)
         {
@@ -717,7 +735,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
 
     public static String className = "Figure3";
     public static String fullName = "OnLattice2DCells." + className;
-    public static int baseRadiationDose, currentRadiationDose;
+    public static int baseRadiationDose, currentRadiationDose, appliedRadiationDose;
     public static List<Integer> radiationTimesteps = List.of(100, 200, 300, 500, 800);
     public static boolean spatialRadiation = true;
 
@@ -748,7 +766,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
             System.exit(0);
         }
 
-        baseRadiationDose = 0; currentRadiationDose = 0;
+        baseRadiationDose = 0; currentRadiationDose = 0; appliedRadiationDose = 10;
         Lymphocytes.dieProb = CellFunctions.getLymphocytesProb(baseRadiationDose);
         if (lymphocitePopulation > 0)
         {
@@ -782,7 +800,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
             }
         }
 
-        double[] Avalues = CellFunctions.getTriggeringCellsProb(baseRadiationDose, TriggeringCells.survivingFractionTLast);
+        double[] Avalues = CellFunctions.getTriggeringCellsProb(baseRadiationDose);
         TriggeringCells.dieProb = Avalues[1]; TriggeringCells.activateProb = Avalues[1];
         if (triggeringPopulation > 0)
         {
@@ -803,6 +821,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
     {
         List<int[]> availableSpaces = new ArrayList<>(); //This is a list of arrays, each array will store x- and y-coodinate
         List<int[]> tumorSpaces = new ArrayList<>();
+        TumorCells.countRad = 0;
 
         if (TumorCells.count + DoomedCells.countRad + DoomedCells.countImm + TriggeringCells.count == this.xDim * this.yDim)
         {
@@ -822,6 +841,10 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
             else if (cell != null && cell.type == CellFunctions.Type.TUMOR)
             {
                 tumorSpaces.add(new int[]{(int) cell.Xpt(),(int) cell.Ypt()});
+                if (cell.radiated)
+                {
+                    TumorCells.countRad++;
+                }
             }
         }
         if (migration)
@@ -842,6 +865,8 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
         CellFunctions.getImmuneResponse();
         double[] Tvalues = CellFunctions.getTumorCellsProb(baseRadiationDose);
         TumorCells.dieProbRad = Tvalues[0]; TumorCells.dieProbImm = Tvalues[1]; TumorCells.divProb = Tvalues[2];
+        double[] Avalues = CellFunctions.getTriggeringCellsProb(baseRadiationDose);
+        TriggeringCells.dieProb = Avalues[0]; TriggeringCells.activateProb = Avalues[1];
 
         for (int i = 0; i < length; i++)
         {
@@ -858,9 +883,8 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
                 }
                 else if (cell.type == CellFunctions.Type.TRIGGERING)
                 {
-                    double[] Avalues = CellFunctions.getTriggeringCellsProb(baseRadiationDose, cell.survivingFractionTLast);
-                    cell.dieProb = Avalues[0];
-                    cell.activateProb = Avalues[1];
+                    cell.dieProb = TriggeringCells.dieProb;
+                    cell.activateProb = TriggeringCells.activateProb;
                 }
             }
             else
@@ -943,11 +967,10 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
 
     public List<int[]> spatialRadiationApplied(GridWindow win, List<int[]> pixelsInCircle) throws Exception
     {
-        currentRadiationDose = 10;
+        currentRadiationDose = appliedRadiationDose;
         double LDieProb = CellFunctions.getLymphocytesProb(currentRadiationDose);
         double[] Tvalues = CellFunctions.getTumorCellsProb(currentRadiationDose);
-        double survivingFractionTLast = CellFunctions.getSurvivingFraction(currentRadiationDose, "radiationSensitivityOfTumorCellsAlpha", "radiationSensitivityOfTumorCellsBeta");
-        double[] Avalues = CellFunctions.getTriggeringCellsProb(currentRadiationDose, survivingFractionTLast);
+        double[] Avalues = CellFunctions.getTriggeringCellsProb(currentRadiationDose);
 
         for (int[] pixel : pixelsInCircle)
         {
@@ -955,6 +978,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
             if (cell != null)
             {
                 cell.radiationDose = currentRadiationDose;
+                cell.radiated = true;
                 if (cell.type == CellFunctions.Type.LYMPHOCYTE)
                 {
                     cell.dieProb = LDieProb;
@@ -962,12 +986,10 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
                 else if (cell.type == CellFunctions.Type.TUMOR)
                 {
                     cell.dieProbRad = Tvalues[0]; cell.dieProbImm = Tvalues[1]; cell.divProb = Tvalues[2];
-                    TumorCells.countRadiated++;
                 }
                 else if (cell.type == CellFunctions.Type.TRIGGERING)
                 {
                     cell.dieProb = Avalues[0]; cell.activateProb = Avalues[1];
-                    cell.survivingFractionTLast = survivingFractionTLast;
                 }
             }
         }
@@ -977,7 +999,6 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
     public void spatialRadiationUnapplied(GridWindow win, List<int[]> pixelsInCircle) throws Exception
     {
         currentRadiationDose = baseRadiationDose;
-        TumorCells.countRadiated = 0;
 
         for (int[] pixel : pixelsInCircle)
         {
@@ -1085,16 +1106,18 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
             if (timestep == 0)
             {
 //                writer.write("Timestep," + Lymphocytes.name + "," + TumorCells.name + "," + DoomedCells.name);
-                writer.write("Timestep,Lymphocytes,TriggeringCells,TumorCells,DoomedCellsRad," +
+                writer.write("Timestep,Lymphocytes,TriggeringCells,TumorCells,TumorCellsRad,DoomedCellsRad," +
                         "DoomedCellsImm,Lymphocytes DieProb,Tumor DieProbRad,Tumor DieProbImm,Tumor DivProb," +
+                        "SurvivingFractionTLast," +
                         "PrimaryImmuneResponse,SecondaryImmuneResponse,ImmuneResponse,LymphocyteMigrationAttempted");
                 writer.newLine();
             }
             //writer.write(timestep + "," + Lymphocytes.count + "," + TumorCells.count + "," + DoomedCells.count);
-            writer.write(timestep + "," + Lymphocytes.count + "," + TriggeringCells.count + "," + TumorCells.count + "," +
+            writer.write(timestep + "," + Lymphocytes.count + "," + TriggeringCells.count + "," + TumorCells.count + "," + TumorCells.countRad + "," +
                     DoomedCells.countRad + "," + DoomedCells.countImm + "," + Lymphocytes.dieProb + "," + TumorCells.dieProbRad + "," +
-                    TumorCells.dieProbImm + "," + TumorCells.divProb + "," + OnLattice2DGrid.primaryImmuneResponse + "," +
-                    OnLattice2DGrid.secondaryImmuneResponse + "," + OnLattice2DGrid.immuneResponse + "," + OnLattice2DGrid.newLymphocytesAttempted);
+                    TumorCells.dieProbImm + "," + TumorCells.divProb + "," + TriggeringCells.SurvivingFractionTLast + "," +
+                    OnLattice2DGrid.primaryImmuneResponse + "," + OnLattice2DGrid.secondaryImmuneResponse + "," +
+                    OnLattice2DGrid.immuneResponse + "," + OnLattice2DGrid.newLymphocytesAttempted);
             writer.newLine();
         }
         catch (IOException e)
@@ -1111,39 +1134,33 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
         {
             if (timestep == 0)
             {
-                writer.write("Timestep, Cell, Type, Color, RadiationDose, DieProb, ActivateProb, DieProbRad, DieProbImm, DivProb");
+                writer.write("Timestep, Cell, Type, Color, Radiated, RadiationDose, DieProb, ActivateProb, DieProbRad, DieProbImm, DivProb");
                 writer.newLine();
             }
-            if (timestep > 197 && timestep < 204 && !duringRadiation)
-            {
-                for (int i = 0; i < length; i++)
-                {
-                    OnLattice2DCells.CellFunctions cell = GetAgent(i);
-                    if (cell != null  && cell.type == CellFunctions.Type.TRIGGERING)
-                    {
-                        writer.write(timestep + "," + cell + "," + cell.type + "," + cell.color + "," + cell.radiationDose + "," + cell.dieProb + "," + cell.activateProb + "," + cell.dieProbRad + "," + cell.dieProbImm + "," + cell.divProb);
-                        writer.newLine();
-                    }
-                }
-            }
+
             if (duringRadiation)
             {
-                writer.write("Before Radiation Effects");
-                writer.newLine();
+                writer.write("Before Radiation Effects\n");
+            }
+
+            if (timestep > 97 && timestep < 104)
+            {
                 for (int i = 0; i < length; i++)
                 {
                     OnLattice2DCells.CellFunctions cell = GetAgent(i);
-
                     if (cell != null && cell.type == CellFunctions.Type.TRIGGERING)
                     {
-                        writer.write(timestep + "," + cell + "," + cell.type + "," + cell.color + "," + cell.radiationDose + "," + cell.dieProb + "," + cell.activateProb + "," + cell.dieProbRad + "," + cell.dieProbImm + "," + cell.divProb);
+                        writer.write(timestep + "," + cell + "," + cell.type + "," + cell.color + "," + cell.radiated + "," + cell.radiationDose + "," + cell.dieProb + "," + cell.activateProb + "," + cell.dieProbRad + "," + cell.dieProbImm + "," + cell.divProb);
                         writer.newLine();
                     }
                 }
-                writer.newLine();
-                writer.write("After Radiation Effects");
-                writer.newLine();
             }
+
+            if (duringRadiation)
+            {
+                writer.write("\nAfter Radiation Effects");
+            }
+
             writer.newLine();
         }
         catch (IOException e)
