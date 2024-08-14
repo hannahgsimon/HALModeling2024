@@ -26,6 +26,7 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
     int color;
     int radiationDose;
     boolean radiated;
+    boolean deathFromRadiation;
     Double dieProb;
     Double dieProbRad;
     Double dieProbImm;
@@ -36,8 +37,7 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
     {
         LYMPHOCYTE,
         TUMOR,
-        DOOMEDRAD,
-        DOOMEDIMM,
+        DOOMED,
         TRIGGERING
     }
 
@@ -57,6 +57,7 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
                 TumorCells.countRad++;
             }
         }
+        this.deathFromRadiation = false;
 
         if (type == Type.LYMPHOCYTE)
         {
@@ -84,17 +85,13 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
 
     public void InitDoomed (boolean radiation)
     {
-        this.radiationDose = OnLattice2DGrid.baseRadiationDose;
+        this.type = Type.DOOMED;
         this.color = Util.CategorialColor(DoomedCells.colorIndex);
         this.dieProb = DoomedCells.dieProb;
         this.dieProbRad = null; this.dieProbImm = null; this.divProb = null; this.activateProb = null;
         if (radiation)
         {
-            this.type = Type.DOOMEDRAD;
-        }
-        else
-        {
-            this.type = Type.DOOMEDIMM;
+            this.deathFromRadiation = true;
         }
     }
 
@@ -119,6 +116,7 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
                 }
                 this.InitDoomed(true);
                 TumorCells.count--;
+                DoomedCells.count++;
                 DoomedCells.countRad++;
             }
             else if (G.rng.Double() < (this.dieProbRad + this.dieProbImm))
@@ -129,6 +127,7 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
                 }
                 this.InitDoomed(false);
                 TumorCells.count--;
+                DoomedCells.count++;
                 DoomedCells.countImm++;
             }
             else if (G.rng.Double() < (this.dieProbRad + this.dieProbImm + this.divProb))
@@ -137,20 +136,20 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
             }
         }
 
-        else if (this.type == Type.DOOMEDRAD)
+        else if (this.type == Type.DOOMED)
         {
             if (G.rng.Double() < this.dieProb)
             {
                 Dispose();
-                DoomedCells.countRad--;
-            }
-        }
-        else if (this.type == Type.DOOMEDIMM)
-        {
-            if (G.rng.Double() < this.dieProb)
-            {
-                Dispose();
-                DoomedCells.countImm--;
+                DoomedCells.count--;
+                if (this.deathFromRadiation)
+                {
+                    DoomedCells.countRad--;
+                }
+                else
+                {
+                    DoomedCells.countImm--;
+                }
             }
         }
 
@@ -181,7 +180,7 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
 
     public void lymphocyteMigration(List<int[]> availableSpaces, OnLattice2DGrid G, GridWindow win, List<int[]> tumorSpaces) throws Exception
     {
-        double volumeDamagedTumorCells = (double) DoomedCells.countRad / (DoomedCells.countRad + DoomedCells.countImm + TumorCells.count);
+        double volumeDamagedTumorCells = (double) DoomedCells.countRad / (DoomedCells.count + TumorCells.count);
         double survivingFractionT;
         if (OnLattice2DGrid.currentRadiationDose == OnLattice2DGrid.baseRadiationDose)
         {
@@ -533,7 +532,7 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
     {
         try
         {
-            double volumeDamagedTumorCells = (double) DoomedCells.countRad / (DoomedCells.countRad + DoomedCells.countImm + TumorCells.count);
+            double volumeDamagedTumorCells = (double) DoomedCells.countRad / (DoomedCells.count + TumorCells.count);
             double survivingFractionTUnradiated = getSurvivingFraction(OnLattice2DGrid.baseRadiationDose, "radiationSensitivityOfTumorCellsAlpha", "radiationSensitivityOfTumorCellsBeta");
             double survivingFractionTRadiated = getSurvivingFraction(OnLattice2DGrid.appliedRadiationDose, "radiationSensitivityOfTumorCellsAlpha", "radiationSensitivityOfTumorCellsBeta");
             TriggeringCells.SurvivingFractionTLast = (TumorCells.countRad * survivingFractionTRadiated + (TumorCells.count - TumorCells.countRad) * survivingFractionTUnradiated) / TumorCells.count;
@@ -609,12 +608,12 @@ class DoomedCells
     public static String nameImm = "Doomed Cells Immune";
     public static double dieProb;
     public static int colorIndex = 3;
-    public static int countRad, countImm;
+    public static int count, countRad, countImm;
     public static double decayConstantOfD;
 
     public void DoomedCells()
     {
-        countRad = 0; countImm = 0;
+        count = 0; countRad = 0; countImm = 0;
         try
         {
             decayConstantOfD = CellFunctions.getDecayConstant("decayConstantOfD");
@@ -825,7 +824,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
         List<int[]> availableSpaces = new ArrayList<>(); //This is a list of arrays, each array will store x- and y-coodinate
         List<int[]> tumorSpaces = new ArrayList<>();
 
-        if (TumorCells.count + DoomedCells.countRad + DoomedCells.countImm + TriggeringCells.count == this.xDim * this.yDim)
+        if (TumorCells.count + DoomedCells.count + TriggeringCells.count == this.xDim * this.yDim)
         {
             availableSpaces.clear();
             return availableSpaces;
@@ -1109,15 +1108,15 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
             if (timestep == 0)
             {
 //                writer.write("Timestep," + Lymphocytes.name + "," + TumorCells.name + "," + DoomedCells.name);
-                writer.write("Timestep,Lymphocytes,TriggeringCells,TumorCells,TumorCellsRad,DoomedCellsRad," +
-                        "DoomedCellsImm,Lymphocytes DieProb,Tumor DieProbRad,Tumor DieProbImm,Tumor DivProb," +
+                writer.write("Timestep,Lymphocytes,TriggeringCells,TumorCells,TumorCellsRad,DoomedCells," +
+                        "DoomedCellsRad,Lymphocytes DieProb,Tumor DieProbRad,Tumor DieProbImm,Tumor DivProb," +
                         "SurvivingFractionTLast," +
                         "PrimaryImmuneResponse,SecondaryImmuneResponse,ImmuneResponse,LymphocyteMigrationAttempted");
                 writer.newLine();
             }
             //writer.write(timestep + "," + Lymphocytes.count + "," + TumorCells.count + "," + DoomedCells.count);
             writer.write(timestep + "," + Lymphocytes.count + "," + TriggeringCells.count + "," + TumorCells.count + "," + TumorCells.countRad + "," +
-                    DoomedCells.countRad + "," + DoomedCells.countImm + "," + Lymphocytes.dieProb + "," + TumorCells.dieProbRad + "," +
+                    DoomedCells.count + "," + DoomedCells.countRad + "," + Lymphocytes.dieProb + "," + TumorCells.dieProbRad + "," +
                     TumorCells.dieProbImm + "," + TumorCells.divProb + "," + TriggeringCells.SurvivingFractionTLast + "," +
                     OnLattice2DGrid.primaryImmuneResponse + "," + OnLattice2DGrid.secondaryImmuneResponse + "," +
                     OnLattice2DGrid.immuneResponse + "," + OnLattice2DGrid.newLymphocytesAttempted);
@@ -1240,8 +1239,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
 
         model.printPopulation(Lymphocytes.name, Lymphocytes.colorIndex, Lymphocytes.count);
         model.printPopulation(TumorCells.name, TumorCells.colorIndex, TumorCells.count);
-        model.printPopulation(DoomedCells.nameRad, DoomedCells.colorIndex, DoomedCells.countRad);
-        model.printPopulation(DoomedCells.nameImm, DoomedCells.colorIndex, DoomedCells.countImm);
+        model.printPopulation(DoomedCells.name, DoomedCells.colorIndex, DoomedCells.count);
         model.printPopulation(TriggeringCells.name, TriggeringCells.colorIndex, TriggeringCells.count);
         System.out.println("Population Total: " + model.Pop());
         System.out.println("Unoccupied Spaces: " +  model.getAvailableSpaces(win, false, 0, null).size());
