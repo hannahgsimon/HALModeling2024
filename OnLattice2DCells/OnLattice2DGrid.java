@@ -85,15 +85,6 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
     public void InitDoomed (boolean radiation)
     {
         this.radiationDose = OnLattice2DGrid.baseRadiationDose;
-        if (OnLattice2DGrid.baseRadiationDose == 0)
-        {
-            this.radiated = false;
-        }
-        else
-        {
-            this.radiated = true;
-        }
-
         this.color = Util.CategorialColor(DoomedCells.colorIndex);
         this.dieProb = DoomedCells.dieProb;
         this.dieProbRad = null; this.dieProbImm = null; this.divProb = null; this.activateProb = null;
@@ -987,7 +978,6 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
                 cell.radiationDose = currentRadiationDose;
                 if (cell.type == CellFunctions.Type.LYMPHOCYTE)
                 {
-                    cell.radiated = true;
                     cell.dieProb = LDieProb;
                 }
                 else if (cell.type == CellFunctions.Type.TUMOR)
@@ -995,15 +985,15 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
                     cell.dieProbRad = Tvalues[0]; cell.dieProbImm = Tvalues[1]; cell.divProb = Tvalues[2];
                     if (!cell.radiated)
                     {
-                        cell.radiated = true;
                         TumorCells.countRad++;
                     }
                 }
                 else if (cell.type == CellFunctions.Type.TRIGGERING)
                 {
-                    cell.radiated = true;
+
                     cell.dieProb = Avalues[0]; cell.activateProb = Avalues[1];
                 }
+                cell.radiated = true;
             }
         }
         return pixelsInCircle;
