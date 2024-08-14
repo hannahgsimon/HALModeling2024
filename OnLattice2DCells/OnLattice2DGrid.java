@@ -52,6 +52,10 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
         else
         {
             this.radiated = true;
+            if (type == Type.TUMOR)
+            {
+                TumorCells.countRad++;
+            }
         }
 
         if (type == Type.LYMPHOCYTE)
@@ -118,12 +122,20 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
         {
             if (G.rng.Double() < this.dieProbRad)
             {
+                if (this.radiated)
+                {
+                    TumorCells.countRad--;
+                }
                 this.InitDoomed(true);
                 TumorCells.count--;
                 DoomedCells.countRad++;
             }
             else if (G.rng.Double() < (this.dieProbRad + this.dieProbImm))
             {
+                if (this.radiated)
+                {
+                    TumorCells.countRad--;
+                }
                 this.InitDoomed(false);
                 TumorCells.count--;
                 DoomedCells.countImm++;
@@ -587,7 +599,7 @@ class TumorCells
 
     public void TumorCells()
     {
-        count = 0;
+        count = 0; countRad = 0;
         try
         {
             tumorGrowthRate = CellFunctions.getTumorGrowthRate();
@@ -611,7 +623,7 @@ class DoomedCells
 
     public void DoomedCells()
     {
-        countRad = 0; countRad = 0; countImm = 0;
+        countRad = 0; countImm = 0;
         try
         {
             decayConstantOfD = CellFunctions.getDecayConstant("decayConstantOfD");
@@ -821,7 +833,6 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
     {
         List<int[]> availableSpaces = new ArrayList<>(); //This is a list of arrays, each array will store x- and y-coodinate
         List<int[]> tumorSpaces = new ArrayList<>();
-        TumorCells.countRad = 0;
 
         if (TumorCells.count + DoomedCells.countRad + DoomedCells.countImm + TriggeringCells.count == this.xDim * this.yDim)
         {
@@ -841,10 +852,6 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
             else if (cell != null && cell.type == CellFunctions.Type.TUMOR)
             {
                 tumorSpaces.add(new int[]{(int) cell.Xpt(),(int) cell.Ypt()});
-                if (cell.radiated)
-                {
-                    TumorCells.countRad++;
-                }
             }
         }
         if (migration)
@@ -978,17 +985,23 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
             if (cell != null)
             {
                 cell.radiationDose = currentRadiationDose;
-                cell.radiated = true;
                 if (cell.type == CellFunctions.Type.LYMPHOCYTE)
                 {
+                    cell.radiated = true;
                     cell.dieProb = LDieProb;
                 }
                 else if (cell.type == CellFunctions.Type.TUMOR)
                 {
                     cell.dieProbRad = Tvalues[0]; cell.dieProbImm = Tvalues[1]; cell.divProb = Tvalues[2];
+                    if (!cell.radiated)
+                    {
+                        cell.radiated = true;
+                        TumorCells.countRad++;
+                    }
                 }
                 else if (cell.type == CellFunctions.Type.TRIGGERING)
                 {
+                    cell.radiated = true;
                     cell.dieProb = Avalues[0]; cell.activateProb = Avalues[1];
                 }
             }
