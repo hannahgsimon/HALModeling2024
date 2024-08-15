@@ -732,9 +732,9 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
 
     public static String className = "Figure3";
     public static String fullName = "OnLattice2DCells." + className;
-    public static int baseRadiationDose = 0, currentRadiationDose = 0, appliedRadiationDose = 20;
+    public static int baseRadiationDose = 0, currentRadiationDose = baseRadiationDose, appliedRadiationDose = 20;
     //baseRadiationDose = 0; currentRadiationDose = 0; appliedRadiationDose = 10;
-    public static List<Integer> radiationTimesteps = List.of(100);
+    public static List<Integer> radiationTimesteps = List.of(100, 200, 300, 500, 800);
     public static boolean totalRadiation = false, centerRadiation = false, spatialRadiation = true;
 
     public static double immuneResponse, primaryImmuneResponse, secondaryImmuneResponse = 0;
@@ -758,6 +758,14 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
 
     public void Init(GridWindow win, OnLattice2DGrid model) throws Exception
     {
+        if ((totalRadiation && centerRadiation) ||
+            (totalRadiation && spatialRadiation) ||
+            (centerRadiation && spatialRadiation))
+        {
+            System.err.println("Two types of radiation are on; choose one for the model to run, or will not run as intended.");
+            System.exit(0);
+        }
+
         //model.NewAgentSQ(model.xDim/2, model.yDim/2).Init(TumorCells.colorIndex);
         int lymphocitePopulation = 0;
         int tumorSize = 1;
@@ -769,7 +777,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
             System.exit(0);
         }
 
-        //baseRadiationDose = 0; currentRadiationDose = 0; appliedRadiationDose = 10;
+        currentRadiationDose = baseRadiationDose;
         Lymphocytes.dieProb = CellFunctions.getLymphocytesProb(baseRadiationDose);
         if (lymphocitePopulation > 0)
         {
@@ -946,6 +954,80 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
         }
     }
 
+    public void spatialRadiationArea(GridWindow win, int[] tumorCoord)
+    {
+        double thresholdPercentage = 0.8;
+        int tumorX = tumorCoord[1] - tumorCoord[0];
+        int tumorY = tumorCoord[3] - tumorCoord[2];
+        int tumorLength = Math.max(tumorX, tumorY);
+        int[] NW = {tumorCoord[0] - tumorLength/2, tumorCoord[1] + tumorLength/2};
+        int[] NE = {tumorCoord[0] + tumorLength/2, tumorCoord[1] + tumorLength/2};
+        int[] SW = {tumorCoord[0] - tumorLength/2, tumorCoord[1] - tumorLength/2};
+        int[] SE = {tumorCoord[0] + tumorLength/2, tumorCoord[1] - tumorLength/2};
+
+        // 1 + 2r + 2 + 2r + 2 + 2r + 1 = tumorLength, solve for r
+        int radius = (tumorLength - 6) / 6;
+        int[][] tumorCenters = {
+                {tumorCoord[4] - 2 * radius - 2, tumorCoord[5] + 2 * radius + 2},
+                {tumorCoord[4], tumorCoord[5] + 2 * radius + 2},
+                {tumorCoord[4] + 2 * radius + 2, tumorCoord[5] + 2 * radius + 2},
+                {tumorCoord[4] - 2 * radius - 2, tumorCoord[5]},
+                {tumorCoord[4], tumorCoord[5]},
+                {tumorCoord[4] + 2 * radius + 2, tumorCoord[5]},
+                {tumorCoord[4] - 2 * radius - 2, tumorCoord[5] - 2 * radius - 2},
+                {tumorCoord[4], tumorCoord[5] - 2 * radius - 2},
+                {tumorCoord[4] + 2 * radius + 2, tumorCoord[5] - 2 * radius - 2}
+        };
+
+        int numCenters = 9;
+        List<int[]>[] radiatedPixelCircle = new ArrayList[numCenters];
+        int[] tumorCount = new int[numCenters];
+        int[] doomedCount = new int[numCenters];
+        for (int k = 0; k < numCenters; k++)
+        {
+            radiatedPixelCircle[k] = new ArrayList<>();
+        }
+
+        for (int i = 0; i < xDim; i++)
+        {
+            for (int j = 0; j < yDim; j++)
+            {
+                for (int k = 0; k < numCenters; k++)
+                {
+                    if (isInsideCircle(i, j, tumorCenters[k][0], tumorCenters[k][1], radius))
+                    {
+                        radiatedPixelCircle[k].add(new int[]{i, j});
+                        if (GetAgent(i, j) != null && GetAgent(i, j).type == CellFunctions.Type.TUMOR)
+                        {
+                            tumorCount[k]++;
+                        }
+                        else if (GetAgent(i, j) != null && GetAgent(i, j).type == CellFunctions.Type.DOOMED)
+                        {
+                            doomedCount[k]++;
+                        }
+                        break; // No need to check other centers if this one matches
+                    }
+                }
+            }
+        }
+
+        System.out.println("Attempting spatial radiation");
+        for (int k = 0; k < numCenters; k++)
+        {
+            if ((double) (tumorCount[k] + doomedCount[k]) / radiatedPixelCircle[k].size() >= thresholdPercentage)
+            {
+                radiatedPixels.addAll(radiatedPixelCircle[k]);
+                System.out.println("Cricle " + k + " radiated");
+            }
+        }
+        System.out.println();
+
+//        for (int[] pixel : radiatedPixels)
+//        {
+//            win.SetPix(pixel[0], pixel[1], Util.GREEN);
+//        }
+    }
+
     public static boolean isInsideCircle(int i, int j, int centerX, int centerY, int radius)
     {
         int dx = i - centerX;
@@ -1004,126 +1086,6 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
                 }
             }
         }
-    }
-
-    public void spatialRadiationArea(GridWindow win, int[] tumorCoord)
-    {
-        double thresholdPercentage = 0.8;
-        int tumorX = tumorCoord[1] - tumorCoord[0];
-        int tumorY = tumorCoord[3] - tumorCoord[2];
-        int tumorLength = Math.max(tumorX, tumorY);
-        int[] NW = {tumorCoord[0] - tumorLength/2, tumorCoord[1] + tumorLength/2};
-        int[] NE = {tumorCoord[0] + tumorLength/2, tumorCoord[1] + tumorLength/2};
-        int[] SW = {tumorCoord[0] - tumorLength/2, tumorCoord[1] - tumorLength/2};
-        int[] SE = {tumorCoord[0] + tumorLength/2, tumorCoord[1] - tumorLength/2};
-
-        // 1 + 2r + 2 + 2r + 2 + 2r + 1 = tumorLength, solve for r
-        int radius = (tumorLength - 6) / 6;
-        int[][] tumorCenters = {
-                {tumorCoord[4] - 2 * radius - 2, tumorCoord[5] + 2 * radius + 2},
-                {tumorCoord[4], tumorCoord[5] + 2 * radius + 2},
-                {tumorCoord[4] + 2 * radius + 2, tumorCoord[5] + 2 * radius + 2},
-                {tumorCoord[4] - 2 * radius - 2, tumorCoord[5]},
-                {tumorCoord[4], tumorCoord[5]},
-                {tumorCoord[4] + 2 * radius + 2, tumorCoord[5]},
-                {tumorCoord[4] - 2 * radius - 2, tumorCoord[5] - 2 * radius - 2},
-                {tumorCoord[4], tumorCoord[5] - 2 * radius - 2},
-                {tumorCoord[4] + 2 * radius + 2, tumorCoord[5] - 2 * radius - 2}
-        };
-
-        List<int[]> radiatedPixels0 = new ArrayList<>();
-        List<int[]> radiatedPixels1 = new ArrayList<>();
-        List<int[]> radiatedPixels2 = new ArrayList<>();
-        List<int[]> radiatedPixels3 = new ArrayList<>();
-        List<int[]> radiatedPixels4 = new ArrayList<>();
-        List<int[]> radiatedPixels5 = new ArrayList<>();
-        List<int[]> radiatedPixels6 = new ArrayList<>();
-        List<int[]> radiatedPixels7 = new ArrayList<>();
-        List<int[]> radiatedPixels8 = new ArrayList<>();
-        int count0 = 0, count1 = 0, count2 = 0, count3 = 0, count4 = 0, count5 = 0,
-                count6 = 0, count7 = 0, count8 = 0;
-
-        for (int i = 0; i < xDim; i++)
-        {
-            for (int j = 0; j < yDim; j++)
-            {
-                if (isInsideCircle(i, j, tumorCenters[0][0], tumorCenters[0][1], radius))
-                {
-                    radiatedPixels0.add(new int[]{i, j});
-                    if (win.GetPix(i, j) == Util.CategorialColor(TumorCells.colorIndex))
-                    {
-                        count0++;
-                    }
-                }
-                else if (isInsideCircle(i, j, tumorCenters[1][0], tumorCenters[1][1], radius))
-                {
-                    radiatedPixels1.add(new int[]{i, j});
-                    if (win.GetPix(i, j) == Util.CategorialColor(TumorCells.colorIndex))
-                    {
-                        count1++;
-                    }
-                }
-                else if (isInsideCircle(i, j, tumorCenters[2][0], tumorCenters[2][1], radius))
-                {
-                    radiatedPixels2.add(new int[]{i, j});
-                    if (win.GetPix(i, j) == Util.CategorialColor(TumorCells.colorIndex))
-                    {
-                        count2++;
-                    }
-                }
-                else if (isInsideCircle(i, j, tumorCenters[3][0], tumorCenters[3][1], radius))
-                {
-                    radiatedPixels3.add(new int[]{i, j});
-                    if (win.GetPix(i, j) == Util.CategorialColor(TumorCells.colorIndex))
-                    {
-                        count3++;
-                    }
-                }
-                else if (isInsideCircle(i, j, tumorCenters[4][0], tumorCenters[4][1], radius))
-                {
-                    radiatedPixels4.add(new int[]{i, j});
-                    if (win.GetPix(i, j) == Util.CategorialColor(TumorCells.colorIndex))
-                    {
-                        count4++;
-                    }
-                }
-                else if (isInsideCircle(i, j, tumorCenters[5][0], tumorCenters[5][1], radius))
-                {
-                    radiatedPixels5.add(new int[]{i, j});
-                    if (win.GetPix(i, j) == Util.CategorialColor(TumorCells.colorIndex))
-                    {
-                        count5++;
-                    }
-                }
-                else if (isInsideCircle(i, j, tumorCenters[6][0], tumorCenters[6][1], radius))
-                {
-                    radiatedPixels6.add(new int[]{i, j});
-                    if (win.GetPix(i, j) == Util.CategorialColor(TumorCells.colorIndex))
-                    {
-                        count6++;
-                    }
-                }
-                else if (isInsideCircle(i, j, tumorCenters[7][0], tumorCenters[7][1], radius))
-                {
-                    radiatedPixels7.add(new int[]{i, j});
-                    if (win.GetPix(i, j) == Util.CategorialColor(TumorCells.colorIndex))
-                    {
-                        count7++;
-                    }
-                }
-                else if (isInsideCircle(i, j, tumorCenters[8][0], tumorCenters[8][1], radius))
-                {
-                    radiatedPixels8.add(new int[]{i, j});
-                    if (win.GetPix(i, j) == Util.CategorialColor(TumorCells.colorIndex))
-                    {
-                        count8++;
-                    }
-                }
-            }
-        }
-
-
-
     }
 
     public String findColor(int colorIndex)
