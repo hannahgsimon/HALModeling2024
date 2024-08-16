@@ -238,6 +238,7 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
                 {
                     selectedPixels.add(availableSpaceInRadius);
                     availableSpacesInRadius.remove(availableSpaceInRadius);
+                    OnLattice2DGrid.availableSpaces.remove(availableSpaceInRadius);
                     totalProbability -= probabilities[availableSpaceInRadius[0]][availableSpaceInRadius[1]];
                     break;
                 }
@@ -732,9 +733,9 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
 
     public static String className = "Figure3";
     public static String fullName = "OnLattice2DCells." + className;
-    public static int baseRadiationDose = 0, currentRadiationDose = baseRadiationDose, appliedRadiationDose = 20;
+    public static int baseRadiationDose = 0, currentRadiationDose = baseRadiationDose, appliedRadiationDose = 10;
     //baseRadiationDose = 0; currentRadiationDose = 0; appliedRadiationDose = 10;
-    public static List<Integer> radiationTimesteps = List.of(100, 200, 300, 500, 800);
+    public static List<Integer> radiationTimesteps = List.of(100, 200, 300, 400, 500, 600, 700, 800, 900);
     public static boolean totalRadiation = false, centerRadiation = false, spatialRadiation = true;
 
     public static double immuneResponse, primaryImmuneResponse, secondaryImmuneResponse = 0;
@@ -750,6 +751,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
     public static final String fullPath1 = directory + fileName1;
     public static final String fileName2 = "TrialRunProbabilities.csv";
     public static final String fullPath2 = directory + fileName2;
+    public static final boolean printProbabilities = false;
 
     public OnLattice2DGrid(int x, int y)
     {
@@ -830,7 +832,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
     public void getAvailableSpaces(GridWindow win, boolean migration, int cellPopulation,
                                    OnLattice2DCells.CellFunctions.Type type) throws Exception
     {
-        if (TumorCells.count + DoomedCells.count + TriggeringCells.count == this.xDim * this.yDim)
+        if (TumorCells.count + DoomedCells.count + Lymphocytes.count + TriggeringCells.count == this.xDim * this.yDim)
         {
             return;
         }
@@ -895,10 +897,10 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
             }
             win.SetPix(i, color);
         }
-        gif.AddFrame(win);
+        //gif.AddFrame(win);
     }
 
-    public int[] getTumorCenter()
+    public int[] getTumorCoord()
     {
         int minX = tumorSpaces.get(0)[0];
         int maxX = tumorSpaces.get(tumorSpaces.size() - 1)[0];
@@ -957,27 +959,106 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
     public void spatialRadiationArea(GridWindow win, int[] tumorCoord)
     {
         double thresholdPercentage = 0.8;
-        int tumorX = tumorCoord[1] - tumorCoord[0];
-        int tumorY = tumorCoord[3] - tumorCoord[2];
-        int tumorLength = Math.max(tumorX, tumorY);
-        int[] NW = {tumorCoord[0] - tumorLength/2, tumorCoord[1] + tumorLength/2};
-        int[] NE = {tumorCoord[0] + tumorLength/2, tumorCoord[1] + tumorLength/2};
-        int[] SW = {tumorCoord[0] - tumorLength/2, tumorCoord[1] - tumorLength/2};
-        int[] SE = {tumorCoord[0] + tumorLength/2, tumorCoord[1] - tumorLength/2};
+        int radius = 10;
+        //List<int[]> tumorCenters = new ArrayList<>();
 
-        // 1 + 2r + 2 + 2r + 2 + 2r + 1 = tumorLength, solve for r
-        int radius = (tumorLength - 6) / 6;
-        int[][] tumorCenters = {
-                {tumorCoord[4] - 2 * radius - 2, tumorCoord[5] + 2 * radius + 2},
-                {tumorCoord[4], tumorCoord[5] + 2 * radius + 2},
-                {tumorCoord[4] + 2 * radius + 2, tumorCoord[5] + 2 * radius + 2},
-                {tumorCoord[4] - 2 * radius - 2, tumorCoord[5]},
-                {tumorCoord[4], tumorCoord[5]},
-                {tumorCoord[4] + 2 * radius + 2, tumorCoord[5]},
-                {tumorCoord[4] - 2 * radius - 2, tumorCoord[5] - 2 * radius - 2},
-                {tumorCoord[4], tumorCoord[5] - 2 * radius - 2},
-                {tumorCoord[4] + 2 * radius + 2, tumorCoord[5] - 2 * radius - 2}
+        List<int[]>[] tumorCenters = new ArrayList[5];
+        for (int k = 0; k < 5; k++)
+        {
+            tumorCenters[k] = new ArrayList<>();
+        }
+
+        if (tumorCoord[4] - radius - 1  >= 0 && tumorCoord[4] + radius + 1  < xDim &&
+                tumorCoord[5] - radius - 1  >= 0 && tumorCoord[5] + radius + 1  < yDim)
+        {
+            tumorCenters[4].add(new int[]{tumorCoord[4], tumorCoord[5]});
+        }
+        else
+        {
+            return; //grid not big enough for even one area of spatial radiation
+        }
+
+        int[] count = new int[4];
+
+        int[][] directions = {
+                {-1, 0}, // Left
+                {1, 0},  // Right
+                {0, 1},  // Top
+                {0, -1}  // Bottom
         };
+
+        
+
+        //Check how many left circles fit
+        while (true)
+        {
+            if (tumorCoord[4] - (count[0] + 1)*2 - (2*(count[0] + 1))*radius - radius - 1 >= 0)
+            {
+                tumorCenters[0].add(new int[]{tumorCoord[4] - (count[0] + 1)*2 - (2*(count[0] + 1))*radius, tumorCoord[5]});
+                count[0]++;
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        //Check how many right circles fit
+        while (true)
+        {
+            if (tumorCoord[4] + (count[1] + 1)*2 + (2*(count[1] + 1))*radius + radius + 1 < xDim)
+            {
+                tumorCenters[1].add(new int[]{tumorCoord[4] + (count[1] + 1)*2 + (2*(count[1] + 1))*radius, tumorCoord[5]});
+                count[1]++;
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        //Check how many top circles fit
+        while (true)
+        {
+            if (tumorCoord[5] + (count[2] + 1)*2 + (2*(count[2] + 1))*radius + radius + 1 < yDim)
+            {
+                tumorCenters[2].add(new int[]{tumorCoord[4], tumorCoord[5] + (count[2] + 1)*2 + (2*(count[2] + 1))*radius});
+                count[2]++;
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        //Check how many bottom circles fit
+        while (true)
+        {
+            if (tumorCoord[5] - (count[3] + 1)*2 - (2*(count[3] + 1))*radius - radius - 1 >= 0)
+            {
+                tumorCenters[3].add(new int[]{tumorCoord[4], tumorCoord[5] - (count[3] + 1)*2 - (2*(count[3] + 1))*radius});
+                count[3]++;
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        for (int i = 0; i < count[0] * count[2]; i++)
+        {
+            //tumorCenters[4].add(new int[]{tumorCenters[0].get(0)[0], tumorCenters[2].get(0)[1]});
+        }
+
+        for (List<int[]> list : tumorCenters) {
+            // Print the contents of each List<int[]>
+            System.out.println(
+                    list.stream()
+                            .map(Arrays::toString)
+                            .reduce((a, b) -> a + ", " + b)
+                            .orElse("")
+            );
+        }
 
         int numCenters = 9;
         List<int[]>[] radiatedPixelCircle = new ArrayList[numCenters];
@@ -988,28 +1069,28 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
             radiatedPixelCircle[k] = new ArrayList<>();
         }
 
-        for (int i = 0; i < xDim; i++)
-        {
-            for (int j = 0; j < yDim; j++)
-            {
-                for (int k = 0; k < numCenters; k++)
-                {
-                    if (isInsideCircle(i, j, tumorCenters[k][0], tumorCenters[k][1], radius))
-                    {
-                        radiatedPixelCircle[k].add(new int[]{i, j});
-                        if (GetAgent(i, j) != null && GetAgent(i, j).type == CellFunctions.Type.TUMOR)
-                        {
-                            tumorCount[k]++;
-                        }
-                        else if (GetAgent(i, j) != null && GetAgent(i, j).type == CellFunctions.Type.DOOMED)
-                        {
-                            doomedCount[k]++;
-                        }
-                        break; // No need to check other centers if this one matches
-                    }
-                }
-            }
-        }
+//        for (int i = 0; i < xDim; i++)
+//        {
+//            for (int j = 0; j < yDim; j++)
+//            {
+//                for (int k = 0; k < numCenters; k++)
+//                {
+//                    if (isInsideCircle(i, j, tumorCenters[k][0], tumorCenters[k][1], radius))
+//                    {
+//                        radiatedPixelCircle[k].add(new int[]{i, j});
+//                        if (GetAgent(i, j) != null && GetAgent(i, j).type == CellFunctions.Type.TUMOR)
+//                        {
+//                            tumorCount[k]++;
+//                        }
+//                        else if (GetAgent(i, j) != null && GetAgent(i, j).type == CellFunctions.Type.DOOMED)
+//                        {
+//                            doomedCount[k]++;
+//                        }
+//                        break; // No need to check other centers if this one matches
+//                    }
+//                }
+//            }
+//        }
 
         System.out.println("Attempting spatial radiation");
         for (int k = 0; k < numCenters; k++)
@@ -1259,10 +1340,10 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
                 "\nTimesteps Applied: " + radiationTimesteps + "\nTotal Radiation: " + totalRadiation +
                 "\nCenter Radiation: " + centerRadiation + "\nSpatial Radiation: " + spatialRadiation + "\n");
 
-        int x = 100;
-        int y = 100;
+        int x = 150;
+        int y = 150;
         int timesteps = 1000;
-        GridWindow win = new GridWindow(x, y, 5);
+        GridWindow win = new GridWindow(x, y, 4);
         OnLattice2DGrid model = new OnLattice2DGrid(x, y);
         for (int i = 0; i < model.xDim; i++)
         {
@@ -1279,7 +1360,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
 
         model.Init(win, model);
         model.saveCountsToCSV(fullPath1, false, 0);
-        model.saveProbabilitiesToCSV(fullPath2, false, 0, win, false);
+        if (printProbabilities) model.saveProbabilitiesToCSV(fullPath2, false, 0, win, false);
 
         GifMaker gif = new GifMaker(directory + "TrialRunGif.gif",1,false);
 
@@ -1296,15 +1377,16 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
                 }
                 else if (centerRadiation)
                 {
-                    model.centerRadiationArea(win, new OnLattice2DGrid(x, y).getTumorCenter());
+                    model.centerRadiationArea(win, new OnLattice2DGrid(x, y).getTumorCoord());
                     model.radiationApplied();
                 }
                 else if (spatialRadiation)
                 {
-                    model.spatialRadiationArea(win, new OnLattice2DGrid(x, y).getTumorCenter());
+                    model.spatialRadiationArea(win, new OnLattice2DGrid(x, y).getTumorCoord());
                     model.radiationApplied();
                 }
-                model.saveProbabilitiesToCSV(fullPath2, true, i, win, true);
+                if (printProbabilities) model.saveProbabilitiesToCSV(fullPath2, true, i, win, true);
+
             }
             else if (radiationTimesteps.contains(i - 1))
             {
@@ -1318,7 +1400,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
             model.getAvailableSpaces(win, true, 0, CellFunctions.Type.LYMPHOCYTE); //Lymphocyte Migration
 
             model.saveCountsToCSV(fullPath1, true, i);
-            model.saveProbabilitiesToCSV(fullPath2, true, i, win, false);
+            if (printProbabilities) model.saveProbabilitiesToCSV(fullPath2, true, i, win, false);
 
             model.DrawModelandUpdateProb(win, gif); //get occupied spaces to use for stepCells method, rerun if model pop goes to 0
 
@@ -1326,7 +1408,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
             {
                 model.Init(win, model);
                 model.saveCountsToCSV(fullPath1, true, 0);
-                model.saveProbabilitiesToCSV(fullPath2, true, 0, win, false);
+                if (printProbabilities) model.saveProbabilitiesToCSV(fullPath2, true, 0, win, false);
                 i = 1;
             }
         }
