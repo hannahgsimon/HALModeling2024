@@ -734,9 +734,10 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
     public static String className = "Figure3";
     public static String fullName = "OnLattice2DCells." + className;
     public static int baseRadiationDose = 0, currentRadiationDose = baseRadiationDose, appliedRadiationDose = 10;
-    //baseRadiationDose = 0; currentRadiationDose = 0; appliedRadiationDose = 10;
     public static List<Integer> radiationTimesteps = List.of(100, 200, 300, 400, 500, 600, 700, 800, 900);
-    public static boolean totalRadiation = false, centerRadiation = false, spatialRadiation = true;
+    public static boolean totalRadiation = false, centerRadiation = true, spatialRadiation = false;
+    public static double targetPercentage = 0.50;
+    public static double thresholdPercentage = 0.8; public static int radius = 10;
 
     public static double immuneResponse, primaryImmuneResponse, secondaryImmuneResponse = 0;
     public static int newLymphocytesAttempted;
@@ -751,7 +752,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
     public static final String fullPath1 = directory + fileName1;
     public static final String fileName2 = "TrialRunProbabilities.csv";
     public static final String fullPath2 = directory + fileName2;
-    public static final boolean printProbabilities = false;
+    public static final boolean printProbabilities = false, writeGIF = false;
 
     public OnLattice2DGrid(int x, int y)
     {
@@ -897,7 +898,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
             }
             win.SetPix(i, color);
         }
-        //gif.AddFrame(win);
+        if (writeGIF) gif.AddFrame(win);
     }
 
     public int[] getTumorCoord()
@@ -919,33 +920,40 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
     public void centerRadiationArea(GridWindow win, int[] tumorCoord)
     {
         //int centerX = xDim/2; int centerY = yDim/2;
-        double targetPercentage = 0.50;
         int targetPixelsInCircle = (int) (TumorCells.count * targetPercentage);
 
         int radius = 0;
-        for (int testRadius = 1; testRadius <= xDim; testRadius++)
+        outerLoop:
+        for (int testRadius = 1; testRadius < xDim/2; testRadius++)
         {
+            radiatedPixels.clear();
             int count = 0;
-            for (int i = tumorCoord[0]; i < tumorCoord[1]; i++)
+            for (int i = tumorCoord[0]; i <= tumorCoord[1]; i++)
             {
-                for (int j = tumorCoord[2]; j < tumorCoord[3]; j++)
+                for (int j = tumorCoord[2]; j <= tumorCoord[3]; j++)
                 {
-                    if (isInsideCircle(i, j, tumorCoord[4], tumorCoord[5], testRadius) && win.GetPix(i, j) == Util.CategorialColor(TumorCells.colorIndex))
+                    if (isInsideCircle(i, j, tumorCoord[4], tumorCoord[5], testRadius))
                     {
-                        count++;
+                        OnLattice2DGrid.radiatedPixels.add(new int[]{i, j});
+                        if (GetAgent(i, j) != null && GetAgent(i, j).type == CellFunctions.Type.TUMOR)
+                        {
+                            count++;
+                        }
                         if (count >= targetPixelsInCircle)
                         {
                             radius = testRadius;
-                            j = yDim; i = xDim; testRadius = xDim + 1; //to exit loops
+                            break outerLoop;
                         }
                     }
                 }
             }
         }
 
-        for (int i = tumorCoord[0]; i < tumorCoord[1]; i++)
+        System.out.println(radiatedPixels.size());
+        radiatedPixels.clear();
+        for (int i = tumorCoord[0]; i <= tumorCoord[1]; i++)
         {
-            for (int j = tumorCoord[2]; j < tumorCoord[3]; j++)
+            for (int j = tumorCoord[2]; j <= tumorCoord[3]; j++)
             {
                 if (isInsideCircle(i, j, tumorCoord[4], tumorCoord[5], radius))
                 {
@@ -954,159 +962,122 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
                 }
             }
         }
+        System.out.println(radiatedPixels.size());
+        int t =4;
     }
 
     public void spatialRadiationArea(GridWindow win, int[] tumorCoord)
     {
-        double thresholdPercentage = 0.8;
-        int radius = 10;
-        //List<int[]> tumorCenters = new ArrayList<>();
-
-        List<int[]>[] tumorCenters = new ArrayList[5];
-        for (int k = 0; k < 5; k++)
-        {
-            tumorCenters[k] = new ArrayList<>();
-        }
+        List<int[]> tumorCenters = new ArrayList<>();
+        List<int[]> combinedDirections = new ArrayList<>();
 
         if (tumorCoord[4] - radius - 1  >= 0 && tumorCoord[4] + radius + 1  < xDim &&
                 tumorCoord[5] - radius - 1  >= 0 && tumorCoord[5] + radius + 1  < yDim)
         {
-            tumorCenters[4].add(new int[]{tumorCoord[4], tumorCoord[5]});
+            tumorCenters.add(new int[]{tumorCoord[4], tumorCoord[5]});
         }
         else
         {
+            System.out.println("Grid isn't big enough for spatial radiation with radius of " + radius);
             return; //grid not big enough for even one area of spatial radiation
         }
 
-        int[] count = new int[4];
-
-        int[][] directions = {
-                {-1, 0}, // Left
-                {1, 0},  // Right
-                {0, 1},  // Top
-                {0, -1}  // Bottom
+        final int[][] directions = {
+                {0, 1}, // N
+                {1, 0},  // E
+                {0, -1},  // S
+                {-1, 0}, // W
         };
 
-        
-
-        //Check how many left circles fit
-        while (true)
+        for (int i = 0; i < 4; i++)
         {
-            if (tumorCoord[4] - (count[0] + 1)*2 - (2*(count[0] + 1))*radius - radius - 1 >= 0)
+            int count = 0;
+            while (true)
             {
-                tumorCenters[0].add(new int[]{tumorCoord[4] - (count[0] + 1)*2 - (2*(count[0] + 1))*radius, tumorCoord[5]});
-                count[0]++;
-            }
-            else
-            {
-                break;
+                int xOffset = directions[i][0] * ((count + 1) * 2 + (2 * (count + 1)) * radius);
+                int yOffset = directions[i][1] * ((count + 1) * 2 + (2 * (count + 1)) * radius);
+                int newX = tumorCoord[4] + xOffset;
+                int newY = tumorCoord[5] + yOffset;
+
+                if (newX - radius - 1 >= 0 && newX + radius + 1 < xDim &&
+                        newY - radius - 1 >= 0 && newY + radius + 1 < yDim)
+                {
+                    tumorCenters.add(new int[]{newX, newY});
+                    combinedDirections.add(new int[]{newX, newY}); // Store for diagonal checking
+                    count++;
+                }
+                else
+                {
+                    break;
+                }
             }
         }
 
-        //Check how many right circles fit
-        while (true)
+        // Check additional combinations for diagonal overlaps
+        for (int[] point1 : combinedDirections)
         {
-            if (tumorCoord[4] + (count[1] + 1)*2 + (2*(count[1] + 1))*radius + radius + 1 < xDim)
+            for (int[] point2 : combinedDirections)
             {
-                tumorCenters[1].add(new int[]{tumorCoord[4] + (count[1] + 1)*2 + (2*(count[1] + 1))*radius, tumorCoord[5]});
-                count[1]++;
-            }
-            else
-            {
-                break;
-            }
-        }
-
-        //Check how many top circles fit
-        while (true)
-        {
-            if (tumorCoord[5] + (count[2] + 1)*2 + (2*(count[2] + 1))*radius + radius + 1 < yDim)
-            {
-                tumorCenters[2].add(new int[]{tumorCoord[4], tumorCoord[5] + (count[2] + 1)*2 + (2*(count[2] + 1))*radius});
-                count[2]++;
-            }
-            else
-            {
-                break;
+                if (point1 != point2)
+                {
+                    int diagonalX = point1[0];
+                    int diagonalY = point2[1];
+                    if (diagonalX - radius - 1 >= 0 && diagonalX + radius + 1 < xDim &&
+                            diagonalY - radius - 1 >= 0 && diagonalY + radius + 1 < yDim &&
+                            diagonalX != tumorCoord[4] && diagonalY != tumorCoord[5])
+                    {
+                        tumorCenters.add(new int[]{diagonalX, diagonalY});
+                    }
+                }
             }
         }
 
-        //Check how many bottom circles fit
-        while (true)
-        {
-            if (tumorCoord[5] - (count[3] + 1)*2 - (2*(count[3] + 1))*radius - radius - 1 >= 0)
-            {
-                tumorCenters[3].add(new int[]{tumorCoord[4], tumorCoord[5] - (count[3] + 1)*2 - (2*(count[3] + 1))*radius});
-                count[3]++;
-            }
-            else
-            {
-                break;
-            }
-        }
+        //for (int[] center : tumorCenters) {System.out.println(Arrays.toString(center));}
 
-        for (int i = 0; i < count[0] * count[2]; i++)
-        {
-            //tumorCenters[4].add(new int[]{tumorCenters[0].get(0)[0], tumorCenters[2].get(0)[1]});
-        }
-
-        for (List<int[]> list : tumorCenters) {
-            // Print the contents of each List<int[]>
-            System.out.println(
-                    list.stream()
-                            .map(Arrays::toString)
-                            .reduce((a, b) -> a + ", " + b)
-                            .orElse("")
-            );
-        }
-
-        int numCenters = 9;
+        int numCenters = tumorCenters.size();
         List<int[]>[] radiatedPixelCircle = new ArrayList[numCenters];
-        int[] tumorCount = new int[numCenters];
-        int[] doomedCount = new int[numCenters];
         for (int k = 0; k < numCenters; k++)
         {
             radiatedPixelCircle[k] = new ArrayList<>();
         }
+        int[] tumorCount = new int[numCenters];
+        int[] doomedCount = new int[numCenters];
 
-//        for (int i = 0; i < xDim; i++)
-//        {
-//            for (int j = 0; j < yDim; j++)
-//            {
-//                for (int k = 0; k < numCenters; k++)
-//                {
-//                    if (isInsideCircle(i, j, tumorCenters[k][0], tumorCenters[k][1], radius))
-//                    {
-//                        radiatedPixelCircle[k].add(new int[]{i, j});
-//                        if (GetAgent(i, j) != null && GetAgent(i, j).type == CellFunctions.Type.TUMOR)
-//                        {
-//                            tumorCount[k]++;
-//                        }
-//                        else if (GetAgent(i, j) != null && GetAgent(i, j).type == CellFunctions.Type.DOOMED)
-//                        {
-//                            doomedCount[k]++;
-//                        }
-//                        break; // No need to check other centers if this one matches
-//                    }
-//                }
-//            }
-//        }
+        for (int i = 0; i < xDim; i++)
+        {
+            for (int j = 0; j < yDim; j++)
+            {
+                for (int k = 0; k < numCenters; k++)
+                {
+                    if (isInsideCircle(i, j, tumorCenters.get(k)[0], tumorCenters.get(k)[1], radius))
+                    {
+                        radiatedPixelCircle[k].add(new int[]{i, j});
+                        if (GetAgent(i, j) != null && GetAgent(i, j).type == CellFunctions.Type.TUMOR)
+                        {
+                            tumorCount[k]++;
+                        }
+                        else if (GetAgent(i, j) != null && GetAgent(i, j).type == CellFunctions.Type.DOOMED)
+                        {
+                            doomedCount[k]++;
+                        }
+                        break; // No need to check other centers if this one matches
+                    }
+                }
+            }
+        }
 
-        System.out.println("Attempting spatial radiation");
+        System.out.println("Attempting spatial radiation. " + numCenters + " circles being checked.");
         for (int k = 0; k < numCenters; k++)
         {
             if ((double) (tumorCount[k] + doomedCount[k]) / radiatedPixelCircle[k].size() >= thresholdPercentage)
             {
                 radiatedPixels.addAll(radiatedPixelCircle[k]);
-                System.out.println("Cricle " + k + " radiated");
+                System.out.println("Circle " + k + " radiated");
             }
         }
         System.out.println();
 
-//        for (int[] pixel : radiatedPixels)
-//        {
-//            win.SetPix(pixel[0], pixel[1], Util.GREEN);
-//        }
+        //for (int[] pixel : radiatedPixels) {win.SetPix(pixel[0], pixel[1], Util.GREEN);}
     }
 
     public static boolean isInsideCircle(int i, int j, int centerX, int centerY, int radius)
@@ -1338,7 +1309,15 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
         System.out.println(className + ":\nBase Radiation Dose: " + baseRadiationDose + " Gy" +
                 "\nApplied Radiation Dose: " + appliedRadiationDose + " Gy" +
                 "\nTimesteps Applied: " + radiationTimesteps + "\nTotal Radiation: " + totalRadiation +
-                "\nCenter Radiation: " + centerRadiation + "\nSpatial Radiation: " + spatialRadiation + "\n");
+                "\nCenter Radiation: " + centerRadiation + "\nSpatial Radiation: " + spatialRadiation);
+        if (centerRadiation)
+        {
+            System.out.println("Center radiation target percentage is " + targetPercentage + ".\n");
+        }
+        else if (spatialRadiation)
+        {
+            System.out.println("Spatial radiation threshold percentage is " + thresholdPercentage + " and preset radius is " + radius + ".\n");
+        }
 
         int x = 150;
         int y = 150;
