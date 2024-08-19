@@ -735,7 +735,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
     public static String fullName = "OnLattice2DCells." + className;
     public static int baseRadiationDose = 0, currentRadiationDose = baseRadiationDose, appliedRadiationDose = 10;
     public static List<Integer> radiationTimesteps = List.of(100, 200, 300, 400, 500, 600, 700, 800, 900);
-    public static boolean totalRadiation = false, centerRadiation = true, spatialRadiation = false;
+    public static boolean totalRadiation = false, centerRadiation = false, spatialRadiation = true;
     public static double targetPercentage = 0.50;
     public static double thresholdPercentage = 0.8; public static int radius = 10;
 
@@ -923,8 +923,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
         int targetPixelsInCircle = (int) (TumorCells.count * targetPercentage);
 
         int radius = 0;
-        outerLoop:
-        for (int testRadius = 1; testRadius < xDim/2; testRadius++)
+        for (int testRadius = (int) Math.sqrt(targetPixelsInCircle / Math.PI); testRadius < xDim/2; testRadius++)
         {
             radiatedPixels.clear();
             int count = 0;
@@ -934,52 +933,38 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
                 {
                     if (isInsideCircle(i, j, tumorCoord[4], tumorCoord[5], testRadius))
                     {
-                        OnLattice2DGrid.radiatedPixels.add(new int[]{i, j});
+                        radiatedPixels.add(new int[]{i, j});
                         if (GetAgent(i, j) != null && GetAgent(i, j).type == CellFunctions.Type.TUMOR)
                         {
                             count++;
                         }
-                        if (count >= targetPixelsInCircle)
-                        {
-                            radius = testRadius;
-                            break outerLoop;
-                        }
                     }
                 }
             }
-        }
-
-        System.out.println(radiatedPixels.size());
-        radiatedPixels.clear();
-        for (int i = tumorCoord[0]; i <= tumorCoord[1]; i++)
-        {
-            for (int j = tumorCoord[2]; j <= tumorCoord[3]; j++)
+            if (count >= targetPixelsInCircle)
             {
-                if (isInsideCircle(i, j, tumorCoord[4], tumorCoord[5], radius))
-                {
-                    //win.SetPix(i, j, Util.GREEN);
-                    OnLattice2DGrid.radiatedPixels.add(new int[]{i, j});
-                }
+                radius = testRadius;
+                break;
             }
         }
-        System.out.println(radiatedPixels.size());
-        int t =4;
     }
 
     public void spatialRadiationArea(GridWindow win, int[] tumorCoord)
     {
         List<int[]> tumorCenters = new ArrayList<>();
         List<int[]> combinedDirections = new ArrayList<>();
+        int minX, maxX, minY, maxY;
 
         if (tumorCoord[4] - radius - 1  >= 0 && tumorCoord[4] + radius + 1  < xDim &&
                 tumorCoord[5] - radius - 1  >= 0 && tumorCoord[5] + radius + 1  < yDim)
         {
             tumorCenters.add(new int[]{tumorCoord[4], tumorCoord[5]});
+            minX = tumorCoord[4]; maxX = tumorCoord[4]; minY = tumorCoord[5]; maxY = tumorCoord[5];
         }
         else
         {
             System.out.println("Grid isn't big enough for spatial radiation with radius of " + radius);
-            return; //grid not big enough for even one area of spatial radiation
+            return;
         }
 
         final int[][] directions = {
@@ -1004,6 +989,14 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
                 {
                     tumorCenters.add(new int[]{newX, newY});
                     combinedDirections.add(new int[]{newX, newY}); // Store for diagonal checking
+                    if (newX < minX)
+                        minX = newX;
+                    else if (newX > maxX)
+                        maxX = newX;
+                    if (newY < minY)
+                        minY = newY;
+                    else if (newY > maxY)
+                        maxY = newY;
                     count++;
                 }
                 else
@@ -1032,6 +1025,8 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
             }
         }
 
+        minX = minX - radius; maxX = maxX + radius; minY = minY - radius; maxY = maxY + radius;
+
         //for (int[] center : tumorCenters) {System.out.println(Arrays.toString(center));}
 
         int numCenters = tumorCenters.size();
@@ -1043,9 +1038,9 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
         int[] tumorCount = new int[numCenters];
         int[] doomedCount = new int[numCenters];
 
-        for (int i = 0; i < xDim; i++)
+        for (int i = minX; i <= maxX; i++)
         {
-            for (int j = 0; j < yDim; j++)
+            for (int j = minY; j <= maxY; j++)
             {
                 for (int k = 0; k < numCenters; k++)
                 {
@@ -1319,8 +1314,8 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
             System.out.println("Spatial radiation threshold percentage is " + thresholdPercentage + " and preset radius is " + radius + ".\n");
         }
 
-        int x = 150;
-        int y = 150;
+        int x = 100;
+        int y = 100;
         int timesteps = 1000;
         GridWindow win = new GridWindow(x, y, 4);
         OnLattice2DGrid model = new OnLattice2DGrid(x, y);
