@@ -1423,22 +1423,56 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
     {
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(fullPath3, append)))
         {
-            if (timestep == 0)
-            {
-                writer.write("Timestep,Type,Lymphocyte Neighbors");
-                writer.newLine();
-            }
+//            if (timestep == 0)
+//            {
+//                writer.write("Timestep,Type,Lymphocyte Neighbors");
+//                writer.newLine();
+//            }
 
             if (timestep >= 0)
             {
-                for (int i = 0; i < length; i++)
+//                for (int i = 0; i < length; i++)
+//                {
+//                    OnLattice2DCells.CellFunctions cell = GetAgent(i);
+//                    if (cell != null)
+//                    {
+//                        writer.write(timestep + "," + cell.type + "," + lymphocyteNeighbors[cell.Xsq()][cell.Ysq()]);
+//                        writer.newLine();
+//                    }
+//                    else
+//                    {
+//                        cell = NewAgentSQ(i);
+//                        writer.write(timestep + ",empty," + lymphocyteNeighbors[cell.Xsq()][cell.Ysq()]);
+//                        writer.newLine();
+//                        cell.Dispose();
+//                    }
+//                }
+                writer.write(timestep  + ",");
+                for (int i = 0; i < xDim; i++)
                 {
-                    OnLattice2DCells.CellFunctions cell = GetAgent(i);
-                    if (cell != null)
+                    writer.write(i + (i < xDim - 1 ? "," : ""));
+                }
+                writer.newLine();
+                for (int j = 0; j < yDim; j++)
+                {
+                    writer.write(j + "");
+                    for (int i = 0; i < xDim; i++)
                     {
-                        writer.write(timestep + "," + cell.type + "," + lymphocyteNeighbors[cell.Xsq()][cell.Ysq()]);
-                        writer.newLine();
+                        String cellContent;
+                        OnLattice2DCells.CellFunctions cell = GetAgent(i, j);
+                        if (cell != null)
+                        {
+                            cellContent = cell.type + " " + lymphocyteNeighbors[i][j];
+                        }
+                        else
+                        {
+                            cell = NewAgentSQ(i, j);
+                            cellContent = "e " + lymphocyteNeighbors[i][j];
+                            cell.Dispose();
+                        }
+                        writer.write("," + cellContent);
                     }
+                    writer.newLine();
                 }
             }
 
