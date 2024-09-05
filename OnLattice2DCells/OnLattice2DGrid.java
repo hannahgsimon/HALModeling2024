@@ -263,8 +263,8 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
         OnLattice2DGrid.newLymphocytesAttempted = (int) (Lymphocytes.tumorInfiltrationRate * TumorCells.count + getRadiationInducedInfiltration() * activation * TriggeringCells.count * TumorCells.count);
 
         int minDim = Math.min(win.xDim, win.yDim);
-        double radiusFraction = 1;
-        int neighborhoodRadius = (int) Math.max(1, minDim * radiusFraction); // Ensure radius is at least 1
+        double radiusFraction = 0.75; //Maximum value is 1
+        int neighborhoodRadius = (int) Math.max(1, (double) minDim /2 * radiusFraction); // Ensure radius is at least 1
 
         //Calculate weights and probabilities for each pixel
         double[][] probabilities = new double[win.xDim][win.yDim]; //default value of all entries is initially zero
@@ -763,7 +763,7 @@ abstract class Figure2 implements ModelParameters
     public static double decayConstantOfL = 0.335;
     public static double recoveryConstantOfA = 0.039;
     public static double radiationInducedInfiltration = 0; //null
-    public static double immuneSuppressionEffect = 0.015;
+    public static double immuneSuppressionEffect = 0.012;
 }
 
 abstract class Figure3 implements ModelParameters
@@ -773,13 +773,13 @@ abstract class Figure3 implements ModelParameters
     public static double radiationSensitivityOfLymphocytesAlpha = 0.182;
     public static double radiationSensitivityOfLymphocytesBeta = 0.143;
     public static double tumorGrowthRate = 0.217;
-    public static double tumorInfiltrationRate = 0.05;
+    public static double tumorInfiltrationRate = 0.05; //in original ODE model, is 0.5
     public static double rateOfCellKilling = 0.135;
     public static double decayConstantOfD = 0.045;
     public static double decayConstantOfL = 0.045;
     public static double recoveryConstantOfA = 0.045;
     public static double radiationInducedInfiltration = 0; //null
-    public static double immuneSuppressionEffect = 0.51;
+    public static double immuneSuppressionEffect = 0.102;
 }
 
 abstract class Figure4 implements ModelParameters
@@ -838,9 +838,9 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
     public static String className = "Figure3";
     public static String fullName = "OnLattice2DCells." + className;
     public static int baseRadiationDose = 0, currentRadiationDose = baseRadiationDose, appliedRadiationDose = 10;
-    public static List<Integer> radiationTimesteps = List.of(100, 200, 300, 400, 500, 600, 700, 800, 900);
-    public static boolean totalRadiation = false, centerRadiation = false, spatialRadiation = false;
-    public static double targetPercentage = 0.50;
+    public static List<Integer> radiationTimesteps = List.of(200);
+    public static boolean totalRadiation = false, centerRadiation = true, spatialRadiation = false;
+    public static double targetPercentage = 1;
     public static double thresholdPercentage = 0.8; public static int radius = 10;
 
     public static double immuneResponse, primaryImmuneResponse, secondaryImmuneResponse = 0;
@@ -862,7 +862,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
     public static final String fullPath2 = directory + fileName2;
     public static final String fileName3 = "LymphocyteNeighbors.csv";
     public static final String fullPath3 = directory + fileName3;
-    public static final boolean printProbabilities = false, writeGIF = false, printNeighbors = true;
+    public static final boolean printProbabilities = false, writeGIF = false, printNeighbors = false;
 
     public OnLattice2DGrid(int x, int y)
     {
@@ -1391,7 +1391,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
                 for (int i = 0; i < length; i++)
                 {
                     OnLattice2DCells.CellFunctions cell = GetAgent(i);
-                    if (cell != null)
+                    if (cell != null && cell.type == CellFunctions.Type.TUMOR)
                     {
                         writer.write(timestep + "," + cell + "," + cell.type + "," + cell.color + "," + cell.radiated + "," +
                                 cell.radiationDose + "," + cell.deathFromRadiation + "," + cell.dieProb + "," + cell.activateProb + "," +
@@ -1505,7 +1505,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
 
         int x = 100;
         int y = 100;
-        int timesteps = 500;
+        int timesteps = 1000;
         GridWindow win = new GridWindow(x, y, 5);
         OnLattice2DGrid model = new OnLattice2DGrid(x, y);
         for (int i = 0; i < model.xDim; i++)
@@ -1572,8 +1572,11 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
 
             model.DrawModelandUpdateProb(win, gif); //get occupied spaces to use for stepCells method, rerun if model pop goes to 0
 
-            if (model.Pop() == 0)
+            //if (model.Pop() == 0)
+            if (TumorCells.count == 0)
             {
+                System.out.println("Timestep tumor population reached 0: " + i + "\n");
+                break;
                 /*model.Init(win, model);
                 model.saveCountsToCSV(fullPath1, true, 0);
                 if (printProbabilities) model.saveProbabilitiesToCSV(fullPath2, true, 0, win, false);
