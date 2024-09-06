@@ -1,22 +1,21 @@
 package OnLattice2DCells;
 
 import HAL.GridsAndAgents.AgentGrid2D;
-import HAL.GridsAndAgents.AgentList;
 import HAL.GridsAndAgents.AgentSQ2Dunstackable;
 import HAL.Gui.GridWindow;
 import HAL.Rand;
 import HAL.Util;
+import HAL.Gui.GifMaker;
 
-import java.lang.Math;
-import java.lang.reflect.Field;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
-import HAL.Gui.GifMaker;
-import java.util.*;
+import java.lang.Math;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.Random;
 
 //Author: Hannah Simon, hannahgsimon on Git
 
@@ -246,7 +245,7 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
         }
     }
 
-    public void lymphocyteMigration(OnLattice2DGrid G, GridWindow win) throws Exception
+    public void lymphocyteMigration(OnLattice2DGrid G, GridWindow win)
     {
         double volumeDamagedTumorCells = (double) DoomedCells.countRad / (DoomedCells.count + TumorCells.count);
         double survivingFractionT;
@@ -378,20 +377,32 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
 
     }
 
-    public static void getimmuneSuppressionEffectThreshold()
+    public static void getImmuneSuppressionEffectThreshold(boolean init)
     {
-
+        if (init)
+        {
+            FigParameters.immuneSuppressionEffect =
+                    (FigParameters.rateOfCellKilling / (FigParameters.tumorGrowthRate * Math.pow(TumorCells.count, ((double) 2 / 3))));
+        }
+        else
+        {
+            FigParameters.immuneSuppressionEffect =
+                    (FigParameters.rateOfCellKilling / (FigParameters.tumorGrowthRate * Math.pow(TumorCells.count, ((double) 2 / 3)))
+                            - 1 / (Lymphocytes.count * Math.pow(TumorCells.count, ((double) 2 / 3))));
+        }
     }
 
     public static void getImmuneResponse()
     {
         double concentrationAntiPD1_PDL1 = 0;
-        OnLattice2DGrid.primaryImmuneResponse = ((Double) FigParameters.rateOfCellKilling * Lymphocytes.count) / (1 + (((Double) FigParameters.immuneSuppressionEffect * Math.pow(TumorCells.count, ((double) 2 / 3)) * Lymphocytes.count) / (1 + concentrationAntiPD1_PDL1)));
+        OnLattice2DGrid.primaryImmuneResponse = ((Double) FigParameters.rateOfCellKilling * Lymphocytes.count) /
+                (1 + ((FigParameters.immuneSuppressionEffect * Math.pow(TumorCells.count, ((double) 2 / 3)) * Lymphocytes.count) / (1 + concentrationAntiPD1_PDL1)));
 
         double concentrationAntiCTLA4 = 0;
         double sensitivityFactorZs = 0.0314;
         int NormalizationFactor = 5;
-        OnLattice2DGrid.secondaryImmuneResponse += sensitivityFactorZs * ((1 + concentrationAntiCTLA4) / (NormalizationFactor + concentrationAntiCTLA4)) * OnLattice2DGrid.primaryImmuneResponse;
+        OnLattice2DGrid.secondaryImmuneResponse += sensitivityFactorZs * ((1 + concentrationAntiCTLA4) /
+                (NormalizationFactor + concentrationAntiCTLA4)) * OnLattice2DGrid.primaryImmuneResponse;
 
         OnLattice2DGrid.immuneResponse = OnLattice2DGrid.primaryImmuneResponse + OnLattice2DGrid.secondaryImmuneResponse;
     }
@@ -608,6 +619,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
     public static double immuneResponse, primaryImmuneResponse, secondaryImmuneResponse = 0;
     public static int newLymphocytesAttempted;
     public static boolean triggeringDied;
+    public static boolean immuneSuppressionEffectThreshold = false;
 
     public static List<int[]> availableSpaces = new ArrayList<>();
     public static List<int[]> tumorSpaces = new ArrayList<>();
@@ -624,14 +636,14 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
     public static final String fullPath2 = directory + fileName2;
     public static final String fileName3 = "LymphocyteNeighbors.csv";
     public static final String fullPath3 = directory + fileName3;
-    public static final boolean printProbabilities = false, writeGIF = false, printNeighbors = false;
+    public static final boolean printProbabilities = true, writeGIF = false, printNeighbors = false;
 
     public OnLattice2DGrid(int x, int y)
     {
         super(x, y, CellFunctions.class);
     }
 
-    public void Init(GridWindow win, OnLattice2DGrid model) throws Exception
+    public void Init(GridWindow win, OnLattice2DGrid model)
     {
         if ((totalRadiation && centerRadiation) ||
                 (totalRadiation && spatialRadiation) ||
@@ -666,6 +678,10 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
         }
 
         TumorCells.count += tumorSize;
+        if (immuneSuppressionEffectThreshold)
+        {
+            CellFunctions.getImmuneSuppressionEffectThreshold(Lymphocytes.count <= 1);
+        }
         CellFunctions.getImmuneResponse();
         double[] Tvalues = CellFunctions.getTumorCellsProb(baseRadiationDose);
         TumorCells.count -= tumorSize;
@@ -745,10 +761,14 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
         }
     }
 
-    public void DrawModelandUpdateProb(GridWindow win, GifMaker gif) throws Exception
+    public void DrawModelandUpdateProb(GridWindow win, GifMaker gif)
     {
         int color;
 
+        if (immuneSuppressionEffectThreshold)
+        {
+            CellFunctions.getImmuneSuppressionEffectThreshold(Lymphocytes.count <= 1);
+        }
         CellFunctions.getImmuneResponse();
         double[] Tvalues = CellFunctions.getTumorCellsProb(baseRadiationDose);
         TumorCells.dieProbRad = Tvalues[0]; TumorCells.dieProbImm = Tvalues[1]; TumorCells.divProb = Tvalues[2];
@@ -965,7 +985,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
         return dx * dx + dy * dy <= radius * radius;
     }
 
-    public void radiationApplied() throws Exception
+    public void radiationApplied()
     {
         currentRadiationDose = appliedRadiationDose;
         double LDieProb = CellFunctions.getLymphocytesProb(currentRadiationDose);
@@ -1000,7 +1020,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
         }
     }
 
-    public void radiationUnapplied() throws Exception
+    public void radiationUnapplied()
     {
         currentRadiationDose = baseRadiationDose;
 
@@ -1112,8 +1132,8 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
 //                writer.write("Timestep," + Lymphocytes.name + "," + TumorCells.name + "," + DoomedCells.name);
                 writer.write("Timestep,Lymphocytes,TriggeringCells,TumorCells,TumorCellsRad,DoomedCells," +
                         "DoomedCellsRad,Lymphocytes DieProb,Tumor DieProbRad,Tumor DieProbImm,Tumor DivProb," +
-                        "SurvivingFractionTLast," +
-                        "PrimaryImmuneResponse,SecondaryImmuneResponse,ImmuneResponse,LymphocyteMigrationAttempted");
+                        "SurvivingFractionTLast,PrimaryImmuneResponse,SecondaryImmuneResponse,ImmuneResponse," +
+                        "LymphocyteMigrationAttempted,ImmuneSuppression");
                 writer.newLine();
             }
             //writer.write(timestep + "," + Lymphocytes.count + "," + TumorCells.count + "," + DoomedCells.count);
@@ -1121,7 +1141,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
                     DoomedCells.count + "," + DoomedCells.countRad + "," + Lymphocytes.dieProb + "," + TumorCells.dieProbRad + "," +
                     TumorCells.dieProbImm + "," + TumorCells.divProb + "," + TriggeringCells.SurvivingFractionTLast + "," +
                     OnLattice2DGrid.primaryImmuneResponse + "," + OnLattice2DGrid.secondaryImmuneResponse + "," +
-                    OnLattice2DGrid.immuneResponse + "," + OnLattice2DGrid.newLymphocytesAttempted);
+                    OnLattice2DGrid.immuneResponse + "," + OnLattice2DGrid.newLymphocytesAttempted  + "," + FigParameters.immuneSuppressionEffect);
             writer.newLine();
         }
         catch (IOException e)
@@ -1139,7 +1159,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
             if (timestep == 0)
             {
                 writer.write("Timestep,Cell,Type,Color,Radiated,RadiationDose,DeathFromRadiation," +
-                        "DieProb,ActivateProb,DieProbRad,DieProbImm,DivProb,Lymphocyte Neighbors");
+                        "DieProb,ActivateProb,DieProbRad,DieProbImm,DivProb,LymphocyteNeighbors");
                 writer.newLine();
             }
 
@@ -1248,7 +1268,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
         System.out.println("Population of " + name + " (" + findColor(colorIndex) + "): " + count);
     }
 
-    public static void main (String[] args) throws Exception
+    public static void main (String[] args)
     {
         new FigParameters(figure);
 
