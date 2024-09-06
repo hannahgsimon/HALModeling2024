@@ -216,7 +216,7 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
                     model.GetAgent(xNeighbor, yNeighbor) != null && model.GetAgent(xNeighbor, yNeighbor).type == Type.LYMPHOCYTE &&
                     OnLattice2DGrid.lymphocyteNeighbors[xNeighbor][yNeighbor] == maxNeighbors)
             {
-                        return false;
+                return false;
             }
         }
 
@@ -252,17 +252,17 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
         double survivingFractionT;
         if (OnLattice2DGrid.currentRadiationDose == OnLattice2DGrid.baseRadiationDose)
         {
-            survivingFractionT = getSurvivingFraction(OnLattice2DGrid.baseRadiationDose, "radiationSensitivityOfTumorCellsAlpha", "radiationSensitivityOfTumorCellsBeta");
+            survivingFractionT = getSurvivingFraction(OnLattice2DGrid.baseRadiationDose, FigParameters.radiationSensitivityOfTumorCellsAlpha, FigParameters.radiationSensitivityOfTumorCellsBeta);
         }
         else
         {
-            double survivingFractionTUnradiated = getSurvivingFraction(OnLattice2DGrid.baseRadiationDose, "radiationSensitivityOfTumorCellsAlpha", "radiationSensitivityOfTumorCellsBeta");
-            double survivingFractionTRadiated = getSurvivingFraction(OnLattice2DGrid.currentRadiationDose, "radiationSensitivityOfTumorCellsAlpha", "radiationSensitivityOfTumorCellsBeta");
+            double survivingFractionTUnradiated = getSurvivingFraction(OnLattice2DGrid.baseRadiationDose, FigParameters.radiationSensitivityOfTumorCellsAlpha, FigParameters.radiationSensitivityOfTumorCellsBeta);
+            double survivingFractionTRadiated = getSurvivingFraction(OnLattice2DGrid.currentRadiationDose, FigParameters.radiationSensitivityOfTumorCellsAlpha, FigParameters.radiationSensitivityOfTumorCellsBeta);
             survivingFractionT = (TumorCells.countRad * survivingFractionTRadiated + (TumorCells.count - TumorCells.countRad) * survivingFractionTUnradiated) / TumorCells.count;
         }
 
         double activation = Math.tanh((1 - survivingFractionT) * volumeDamagedTumorCells);
-        OnLattice2DGrid.newLymphocytesAttempted = (int) (Lymphocytes.tumorInfiltrationRate * TumorCells.count + FigureParameters.radiationInducedInfiltration * activation * TriggeringCells.count * TumorCells.count);
+        OnLattice2DGrid.newLymphocytesAttempted = (int) (FigParameters.tumorInfiltrationRate * TumorCells.count + FigParameters.radiationInducedInfiltration * activation * TriggeringCells.count * TumorCells.count);
 
         int minDim = Math.min(win.xDim, win.yDim);
         double radiusFraction = 0.75; //Maximum value is 1
@@ -378,138 +378,57 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
 
     }
 
-    public static double getimmuneSuppressionEffectThreshold()
+    public static void getimmuneSuppressionEffectThreshold()
     {
 
     }
 
-    public static void getImmuneResponse() throws Exception
+    public static void getImmuneResponse()
     {
-        try
-        {
-            double concentrationAntiPD1_PDL1 = 0;
+        double concentrationAntiPD1_PDL1 = 0;
+        OnLattice2DGrid.primaryImmuneResponse = ((Double) FigParameters.rateOfCellKilling * Lymphocytes.count) / (1 + (((Double) FigParameters.immuneSuppressionEffect * Math.pow(TumorCells.count, ((double) 2 / 3)) * Lymphocytes.count) / (1 + concentrationAntiPD1_PDL1)));
 
-            Class<?> clazz = Class.forName(OnLattice2DGrid.fullName);
+        double concentrationAntiCTLA4 = 0;
+        double sensitivityFactorZs = 0.0314;
+        int NormalizationFactor = 5;
+        OnLattice2DGrid.secondaryImmuneResponse += sensitivityFactorZs * ((1 + concentrationAntiCTLA4) / (NormalizationFactor + concentrationAntiCTLA4)) * OnLattice2DGrid.primaryImmuneResponse;
 
-            Field field1 = clazz.getDeclaredField("rateOfCellKilling");
-            Object value1 = field1.get(null);
-
-            Field field2 = clazz.getDeclaredField("immuneSuppressionEffect");
-            Object value2 = field2.get(null);
-
-            OnLattice2DGrid.primaryImmuneResponse = ((Double) value1 * Lymphocytes.count) / (1 + (((Double) value2 * Math.pow(TumorCells.count, ((double) 2 / 3)) * Lymphocytes.count) / (1 + concentrationAntiPD1_PDL1)));
-
-            double concentrationAntiCTLA4 = 0;
-            double sensitivityFactorZs = 0.0314;
-            int NormalizationFactor = 5;
-            OnLattice2DGrid.secondaryImmuneResponse += sensitivityFactorZs * ((1 + concentrationAntiCTLA4) / (NormalizationFactor + concentrationAntiCTLA4)) * OnLattice2DGrid.primaryImmuneResponse;
-
-            OnLattice2DGrid.immuneResponse = OnLattice2DGrid.primaryImmuneResponse + OnLattice2DGrid.secondaryImmuneResponse;
-        }
-        catch (ClassNotFoundException e)
-        {
-            System.err.println("Class not found: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
-        }
-        catch (NoSuchFieldException e)
-        {
-            System.err.println("Field not found: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
-        }
-        catch (Exception e)
-        {
-            System.err.println("Error during reflection: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
-        }
+        OnLattice2DGrid.immuneResponse = OnLattice2DGrid.primaryImmuneResponse + OnLattice2DGrid.secondaryImmuneResponse;
     }
 
-    public static double getSurvivingFraction(double radiationDose, String alpha, String beta) throws Exception
+    public static double getSurvivingFraction(double radiationDose, double alpha, double beta)
     {
-        try
-        {
-            Class<?> clazz = Class.forName(OnLattice2DGrid.fullName);
-
-            Field field1 = clazz.getDeclaredField(alpha);
-            Object value1 = field1.get(null); // Static field, use 'null' for static access
-
-            Field field2 = clazz.getDeclaredField(beta);
-            Object value2 = field2.get(null);
-
-            return Math.exp((Double) value1 * -radiationDose - (Double) value2 * Math.pow(radiationDose, 2));
-            //return (Double) (-x.radiationSensitivityOfLymphocytesAlpha * radiationDose - radiationSensitivityOfLymphocytesBeta * Math.pow(radiationDose, 2));
-        }
-        catch (ClassNotFoundException e)
-        {
-            System.err.println("Class not found: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
-        }
-        catch (NoSuchFieldException e)
-        {
-            System.err.println("Field not found: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
-        }
-        catch (Exception e)
-        {
-            System.err.println("Error during reflection: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
-        }
+        return Math.exp(alpha * -radiationDose - beta * Math.pow(radiationDose, 2));
     }
 
-    public static double getLymphocytesProb(int radiationDose) throws Exception
+    public static double getLymphocytesProb(int radiationDose)
     {
-        try
-        {
-            double survivingFractionL = getSurvivingFraction(radiationDose,"radiationSensitivityOfLymphocytesAlpha", "radiationSensitivityOfLymphocytesBeta");
-            return 1 - survivingFractionL + (survivingFractionL * Lymphocytes.decayConstantOfL);
-        }
-        catch (Exception e)
-        {
-            throw new RuntimeException(e);
-        }
+        double survivingFractionL = getSurvivingFraction(radiationDose,FigParameters.radiationSensitivityOfLymphocytesAlpha, FigParameters.radiationSensitivityOfLymphocytesBeta);
+        return 1 - survivingFractionL + (survivingFractionL * FigParameters.decayConstantOfL);
     }
 
-    public static double[] getTumorCellsProb(int radiationDose) throws Exception
+    public static double[] getTumorCellsProb(int radiationDose)
     {
-        try
-        {
-            double survivingFractionT = getSurvivingFraction(radiationDose, "radiationSensitivityOfTumorCellsAlpha", "radiationSensitivityOfTumorCellsBeta");
-            double dieProbRad = 1 - survivingFractionT;
-            double dieProbImm = survivingFractionT * OnLattice2DGrid.immuneResponse;
-            double divProb = survivingFractionT * (1 - OnLattice2DGrid.immuneResponse) * TumorCells.tumorGrowthRate;
-            return new double[]{dieProbRad, dieProbImm, divProb};
-        }
-        catch (Exception e)
-        {
-            throw new RuntimeException(e);
-        }
+        double survivingFractionT = getSurvivingFraction(radiationDose, FigParameters.radiationSensitivityOfTumorCellsAlpha, FigParameters.radiationSensitivityOfTumorCellsBeta);
+        double dieProbRad = 1 - survivingFractionT;
+        double dieProbImm = survivingFractionT * OnLattice2DGrid.immuneResponse;
+        double divProb = survivingFractionT * (1 - OnLattice2DGrid.immuneResponse) * FigParameters.tumorGrowthRate;
+        return new double[]{dieProbRad, dieProbImm, divProb};
     }
 
-    public static double[] getTriggeringCellsProb(int radiationDose) throws Exception
+    public static double[] getTriggeringCellsProb(int radiationDose)
     {
-        try
-        {
-            double volumeDamagedTumorCells = (double) DoomedCells.countRad / (DoomedCells.count + TumorCells.count);
-            double survivingFractionTUnradiated = getSurvivingFraction(OnLattice2DGrid.baseRadiationDose, "radiationSensitivityOfTumorCellsAlpha", "radiationSensitivityOfTumorCellsBeta");
-            double survivingFractionTRadiated = getSurvivingFraction(OnLattice2DGrid.appliedRadiationDose, "radiationSensitivityOfTumorCellsAlpha", "radiationSensitivityOfTumorCellsBeta");
-            TriggeringCells.SurvivingFractionTLast = (TumorCells.countRad * survivingFractionTRadiated + (TumorCells.count - TumorCells.countRad) * survivingFractionTUnradiated) / TumorCells.count;
+        double volumeDamagedTumorCells = (double) DoomedCells.countRad / (DoomedCells.count + TumorCells.count);
+        double survivingFractionTUnradiated = getSurvivingFraction(OnLattice2DGrid.baseRadiationDose, FigParameters.radiationSensitivityOfTumorCellsAlpha, FigParameters.radiationSensitivityOfTumorCellsBeta);
+        double survivingFractionTRadiated = getSurvivingFraction(OnLattice2DGrid.appliedRadiationDose, FigParameters.radiationSensitivityOfTumorCellsAlpha, FigParameters.radiationSensitivityOfTumorCellsBeta);
+        TriggeringCells.SurvivingFractionTLast = (TumorCells.countRad * survivingFractionTRadiated + (TumorCells.count - TumorCells.countRad) * survivingFractionTUnradiated) / TumorCells.count;
 
-            double activation = Math.tanh((1 - TriggeringCells.SurvivingFractionTLast) * volumeDamagedTumorCells);
-            double survivingFractionL = getSurvivingFraction(radiationDose,"radiationSensitivityOfLymphocytesAlpha", "radiationSensitivityOfLymphocytesBeta");
-            double survivingFractionI =  survivingFractionL;
-            double dieProb = (1 - survivingFractionI) * (1 - TriggeringCells.recoveryConstantOfA);
-            double activateProb = (1 - survivingFractionI) * TriggeringCells.recoveryConstantOfA * activation + survivingFractionI * activation;
-            return new double[]{dieProb, activateProb};
-        }
-        catch (Exception e)
-        {
-            throw new RuntimeException(e);
-        }
+        double activation = Math.tanh((1 - TriggeringCells.SurvivingFractionTLast) * volumeDamagedTumorCells);
+        double survivingFractionL = getSurvivingFraction(radiationDose,FigParameters.radiationSensitivityOfLymphocytesAlpha, FigParameters.radiationSensitivityOfLymphocytesBeta);
+        double survivingFractionI =  survivingFractionL;
+        double dieProb = (1 - survivingFractionI) * (1 - FigParameters.recoveryConstantOfA);
+        double activateProb = (1 - survivingFractionI) * FigParameters.recoveryConstantOfA * activation + survivingFractionI * activation;
+        return new double[]{dieProb, activateProb};
     }
 }
 
@@ -534,19 +453,10 @@ class TumorCells
     public static double divProb;
     public static int colorIndex = 1;
     public static int count, countRad;
-    public static double tumorGrowthRate;
 
     public void TumorCells()
     {
         count = 0; countRad = 0;
-        try
-        {
-            tumorGrowthRate = CellFunctions.getTumorGrowthRate();
-        }
-        catch (Exception e)
-        {
-            throw new RuntimeException(e);
-        }
     }
 }
 
@@ -558,20 +468,11 @@ class DoomedCells
     public static double dieProb;
     public static int colorIndex = 3;
     public static int count, countRad, countImm;
-    public static double decayConstantOfD;
 
     public void DoomedCells()
     {
         count = 0; countRad = 0; countImm = 0;
-        try
-        {
-            decayConstantOfD = CellFunctions.getDecayConstant("decayConstantOfD");
-            dieProb = decayConstantOfD;
-        }
-        catch (Exception e)
-        {
-            throw new RuntimeException(e);
-        }
+        dieProb = FigParameters.decayConstantOfD;
     }
 }
 
@@ -582,105 +483,17 @@ class TriggeringCells
     public static double activateProb;
     public static int colorIndex = 2;
     public static int count;
-    public static double recoveryConstantOfA;
     public static double SurvivingFractionTLast;
 
     public void TriggeringCells()
     {
         count = 0;
-        try
-        {
-            recoveryConstantOfA = CellFunctions.getRecoveryConstantOfA();
-        }
-        catch (Exception e)
-        {
-            throw new RuntimeException(e);
-        }
     }
 }
 
-abstract class Figure2 implements ModelParameters
+class FigParameters
 {
-    public static double radiationSensitivityOfTumorCellsAlpha = 0; //null
-    public static double radiationSensitivityOfTumorCellsBeta = 0;  //null
-    public static double radiationSensitivityOfLymphocytesAlpha = 0; //null
-    public static double radiationSensitivityOfLymphocytesBeta = 0; //null
-    public static double tumorGrowthRate = 0.217;
-    public static double tumorInfiltrationRate = 0.1;
-    public static double rateOfCellKilling = 0.05;
-    public static double decayConstantOfD = 0.039;
-    public static double decayConstantOfL = 0.335;
-    public static double recoveryConstantOfA = 0.039;
-    public static double radiationInducedInfiltration = 0; //null
-    public static double immuneSuppressionEffect = 0.012;
-}
-
-abstract class Figure3 implements ModelParameters
-{
-    public static double radiationSensitivityOfTumorCellsAlpha = 0.05;
-    public static double radiationSensitivityOfTumorCellsBeta = 0.0114;
-    public static double radiationSensitivityOfLymphocytesAlpha = 0.182;
-    public static double radiationSensitivityOfLymphocytesBeta = 0.143;
-    public static double tumorGrowthRate = 0.217;
-    public static double tumorInfiltrationRate = 0.05; //in original ODE model, is 0.5
-    public static double rateOfCellKilling = 0.135;
-    public static double decayConstantOfD = 0.045;
-    public static double decayConstantOfL = 0.045;
-    public static double recoveryConstantOfA = 0.045;
-    public static double radiationInducedInfiltration = 0; //null
-    public static double immuneSuppressionEffect = 0.102;
-}
-
-abstract class Figure4 implements ModelParameters
-{
-    public static double radiationSensitivityOfTumorCellsAlpha = 0.05;
-    public static double radiationSensitivityOfTumorCellsBeta = 0.0114;
-    public static double radiationSensitivityOfLymphocytesAlpha = 0.182;
-    public static double radiationSensitivityOfLymphocytesBeta = 0.143;
-    public static double tumorGrowthRate = 0.217;
-    public static double tumorInfiltrationRate = 0.5;
-    public static double rateOfCellKilling = 0.135;
-    public static double decayConstantOfD = 0.045;
-    public static double decayConstantOfL = 0.045;
-    public static double recoveryConstantOfA = 0.045;
-    public static double radiationInducedInfiltration = 300;
-    public static double immuneSuppressionEffect = 1.1;
-}
-
-abstract class Figure5 implements ModelParameters
-{
-    public static double radiationSensitivityOfTumorCellsAlpha = 0.05;
-    public static double radiationSensitivityOfTumorCellsBeta = 0.0114;
-    public static double radiationSensitivityOfLymphocytesAlpha = 0.182;
-    public static double radiationSensitivityOfLymphocytesBeta = 0.143;
-    public static double tumorGrowthRate = 0.217;
-    public static double tumorInfiltrationRate = 0.5;
-    public static double rateOfCellKilling = 0.135;
-    public static double decayConstantOfD = 0.045;
-    public static double decayConstantOfL = 0.045;
-    public static double recoveryConstantOfA = 0.045;
-    public static double radiationInducedInfiltration = 300;
-    public static double immuneSuppressionEffect = 1.1;
-}
-
-abstract class Figure6 implements ModelParameters
-{
-    public static double radiationSensitivityOfTumorCellsAlpha = 0.214;
-    public static double radiationSensitivityOfTumorCellsBeta = 0.0214;
-    public static double radiationSensitivityOfLymphocytesAlpha = 0.182;
-    public static double radiationSensitivityOfLymphocytesBeta = 0.143;
-    public static double tumorGrowthRate = 0.03;
-    public static double tumorInfiltrationRate = 0.1;
-    public static double rateOfCellKilling = 0.004;
-    public static double decayConstantOfD = 0.045;
-    public static double decayConstantOfL = 0.056;
-    public static double recoveryConstantOfA = 0.045;
-    public static double radiationInducedInfiltration = 4.6;
-    public static double immuneSuppressionEffect = 0.5;
-}
-
-class FigureParameters
-{
+    int figure;
     public static double radiationSensitivityOfTumorCellsAlpha; //null
     public static double radiationSensitivityOfTumorCellsBeta;  //null
     public static double radiationSensitivityOfLymphocytesAlpha; //null
@@ -690,61 +503,92 @@ class FigureParameters
     public static double rateOfCellKilling;
     public static double decayConstantOfD;
     public static double decayConstantOfL;
-    public static double recoveryConstantOfA ;
+    public static double recoveryConstantOfA;
     public static double radiationInducedInfiltration; //null
     public static double immuneSuppressionEffect;
 
-    // Map field names to the corresponding class variables
-    public static Map<String, Double> parametersMap = new HashMap<>();
-
-    static {
-        // Add all parameters to the map
-        parametersMap.put("radiationSensitivityOfTumorCellsAlpha", radiationSensitivityOfTumorCellsAlpha);
-        parametersMap.put("radiationSensitivityOfTumorCellsBeta", radiationSensitivityOfTumorCellsBeta);
-        parametersMap.put("radiationSensitivityOfLymphocytesAlpha", radiationSensitivityOfLymphocytesAlpha);
-        parametersMap.put("radiationSensitivityOfLymphocytesBeta", radiationSensitivityOfLymphocytesBeta);
-        parametersMap.put("tumorGrowthRate", tumorGrowthRate);
-        parametersMap.put("tumorInfiltrationRate", tumorInfiltrationRate);
-        parametersMap.put("rateOfCellKilling", rateOfCellKilling);
-        parametersMap.put("decayConstantOfD", decayConstantOfD);
-        parametersMap.put("decayConstantOfL", decayConstantOfL);
-        parametersMap.put("recoveryConstantOfA", recoveryConstantOfA);
-        parametersMap.put("radiationInducedInfiltration", radiationInducedInfiltration);
-        parametersMap.put("immuneSuppressionEffect", immuneSuppressionEffect);
-    }
-
-    public static void loadParametersFromFigureClass() throws Exception
+    public FigParameters(int figure)
     {
-        try
+        this.figure = figure;
+        if (figure == 2)
         {
-            // Get the class dynamically based on the figure name
-            Class<?> clazz = Class.forName(OnLattice2DGrid.className);
-
-            // Iterate through the map and set values dynamically
-            for (String fieldName : parametersMap.keySet())
-            {
-                Field field = clazz.getDeclaredField(fieldName);
-                Object value = field.get(null);
-                parametersMap.put(fieldName, (Double) value);
-            }
+            radiationSensitivityOfTumorCellsAlpha = 0; //null
+            radiationSensitivityOfTumorCellsBeta = 0;  //null
+            radiationSensitivityOfLymphocytesAlpha = 0; //null
+            radiationSensitivityOfLymphocytesBeta = 0; //null
+            tumorGrowthRate = 0.217;
+            tumorInfiltrationRate = 0.1;
+            rateOfCellKilling = 0.05;
+            decayConstantOfD = 0.039;
+            decayConstantOfL = 0.335;
+            recoveryConstantOfA = 0.039;
+            radiationInducedInfiltration = 0; //null
+            immuneSuppressionEffect = 0.012;
         }
-        catch (ClassNotFoundException e)
+        else if (figure == 3)
         {
-            System.err.println("Class not found: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
+            radiationSensitivityOfTumorCellsAlpha = 0.05;
+            radiationSensitivityOfTumorCellsBeta = 0.0114;
+            radiationSensitivityOfLymphocytesAlpha = 0.182;
+            radiationSensitivityOfLymphocytesBeta = 0.143;
+            tumorGrowthRate = 0.217;
+            tumorInfiltrationRate = 0.05; //in original ODE model, is 0.5
+            rateOfCellKilling = 0.135;
+            decayConstantOfD = 0.045;
+            decayConstantOfL = 0.045;
+            recoveryConstantOfA = 0.045;
+            radiationInducedInfiltration = 0; //null
+            immuneSuppressionEffect = 0.51;
         }
-        catch (NoSuchFieldException e)
+        else if (figure == 4)
         {
-            System.err.println("Field not found: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
+            radiationSensitivityOfTumorCellsAlpha = 0.05;
+            radiationSensitivityOfTumorCellsBeta = 0.0114;
+            radiationSensitivityOfLymphocytesAlpha = 0.182;
+            radiationSensitivityOfLymphocytesBeta = 0.143;
+            tumorGrowthRate = 0.217;
+            tumorInfiltrationRate = 0.5;
+            rateOfCellKilling = 0.135;
+            decayConstantOfD = 0.045;
+            decayConstantOfL = 0.045;
+            recoveryConstantOfA = 0.045;
+            radiationInducedInfiltration = 300;
+            immuneSuppressionEffect = 1.1;
         }
-        catch (Exception e)
+        else if (figure == 5)
         {
-            System.err.println("Error during reflection: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
+            radiationSensitivityOfTumorCellsAlpha = 0.05;
+            radiationSensitivityOfTumorCellsBeta = 0.0114;
+            radiationSensitivityOfLymphocytesAlpha = 0.182;
+            radiationSensitivityOfLymphocytesBeta = 0.143;
+            tumorGrowthRate = 0.217;
+            tumorInfiltrationRate = 0.5;
+            rateOfCellKilling = 0.135;
+            decayConstantOfD = 0.045;
+            decayConstantOfL = 0.045;
+            recoveryConstantOfA = 0.045;
+            radiationInducedInfiltration = 300;
+            immuneSuppressionEffect = 1.1;
+        }
+        else if (figure == 6)
+        {
+            radiationSensitivityOfTumorCellsAlpha = 0.214;
+            radiationSensitivityOfTumorCellsBeta = 0.0214;
+            radiationSensitivityOfLymphocytesAlpha = 0.182;
+            radiationSensitivityOfLymphocytesBeta = 0.143;
+            tumorGrowthRate = 0.03;
+            tumorInfiltrationRate = 0.1;
+            rateOfCellKilling = 0.004;
+            decayConstantOfD = 0.045;
+            decayConstantOfL = 0.056;
+            recoveryConstantOfA = 0.045;
+            radiationInducedInfiltration = 4.6;
+            immuneSuppressionEffect = 0.5;
+        }
+        else
+        {
+            System.err.println("Figure " + figure + " is not a valid figure number.");
+            System.exit(0);
         }
     }
 }
@@ -754,12 +598,11 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
     Rand rng = new Rand();
     int[] divHood = Util.VonNeumannHood(false);
 
-    public static String className = "Figure3";
-    public static String fullName = "OnLattice2DCells." + className;
+    public static int figure = 3;
     public static int baseRadiationDose = 0, currentRadiationDose = baseRadiationDose, appliedRadiationDose = 10;
-    public static List<Integer> radiationTimesteps = List.of(200);
+    public static List<Integer> radiationTimesteps = List.of(100, 200);
     public static boolean totalRadiation = false, centerRadiation = true, spatialRadiation = false;
-    public static double targetPercentage = 1;
+    public static double targetPercentage = 0.8;
     public static double thresholdPercentage = 0.8; public static int radius = 10;
 
     public static double immuneResponse, primaryImmuneResponse, secondaryImmuneResponse = 0;
@@ -1310,7 +1153,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
                 for (int i = 0; i < length; i++)
                 {
                     OnLattice2DCells.CellFunctions cell = GetAgent(i);
-                    if (cell != null && cell.type == CellFunctions.Type.TUMOR)
+                    if (cell != null)
                     {
                         writer.write(timestep + "," + cell + "," + cell.type + "," + cell.color + "," + cell.radiated + "," +
                                 cell.radiationDose + "," + cell.deathFromRadiation + "," + cell.dieProb + "," + cell.activateProb + "," +
@@ -1407,7 +1250,9 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
 
     public static void main (String[] args) throws Exception
     {
-        System.out.println(className + ":\nBase Radiation Dose: " + baseRadiationDose + " Gy" +
+        new FigParameters(figure);
+
+        System.out.println("Figure " + figure + ":\nBase Radiation Dose: " + baseRadiationDose + " Gy" +
                 "\nApplied Radiation Dose: " + appliedRadiationDose + " Gy" +
                 "\nTimesteps Applied: " + radiationTimesteps + "\nTotal Radiation: " + totalRadiation +
                 "\nCenter Radiation: " + centerRadiation + "\nSpatial Radiation: " + spatialRadiation);
@@ -1422,7 +1267,6 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
         System.out.println("\nSave Probabilities to CSV: " + printProbabilities +
                 "\nSave GIF (slows code down): " + writeGIF + "\n");
 
-        FigureParameters.loadParametersFromFigureClass();
         int x = 100;
         int y = 100;
         int timesteps = 1000;
