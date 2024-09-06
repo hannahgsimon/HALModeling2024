@@ -15,6 +15,8 @@ import java.io.IOException;
 import HAL.Gui.GifMaker;
 import java.util.*;
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
 //Author: Hannah Simon, hannahgsimon on Git
 
@@ -260,7 +262,7 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
         }
 
         double activation = Math.tanh((1 - survivingFractionT) * volumeDamagedTumorCells);
-        OnLattice2DGrid.newLymphocytesAttempted = (int) (Lymphocytes.tumorInfiltrationRate * TumorCells.count + getRadiationInducedInfiltration() * activation * TriggeringCells.count * TumorCells.count);
+        OnLattice2DGrid.newLymphocytesAttempted = (int) (Lymphocytes.tumorInfiltrationRate * TumorCells.count + FigureParameters.radiationInducedInfiltration * activation * TriggeringCells.count * TumorCells.count);
 
         int minDim = Math.min(win.xDim, win.yDim);
         double radiusFraction = 0.75; //Maximum value is 1
@@ -376,149 +378,9 @@ class CellFunctions extends AgentSQ2Dunstackable<OnLattice2DGrid>
 
     }
 
-    public static double getTumorGrowthRate() throws Exception
+    public static double getimmuneSuppressionEffectThreshold()
     {
-        try
-        {
-            Class<?> clazz = Class.forName(OnLattice2DGrid.fullName);
-            Field field = clazz.getDeclaredField("tumorGrowthRate");
-            Object value = field.get(null);
-            return (Double) value;
-        }
-        catch (ClassNotFoundException e)
-        {
-            System.err.println("Class not found: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
-        }
-        catch (NoSuchFieldException e)
-        {
-            System.err.println("Field not found: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
-        }
-        catch (Exception e)
-        {
-            System.err.println("Error during reflection: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
-        }
-    }
 
-    public static double getTumorInfiltrationRate() throws Exception
-    {
-        try
-        {
-            Class<?> clazz = Class.forName(OnLattice2DGrid.fullName);
-            Field field = clazz.getDeclaredField("tumorInfiltrationRate");
-            Object value = field.get(null); // Static field, use 'null' for static access
-            return (Double) value;
-        }
-        catch (ClassNotFoundException e)
-        {
-            System.err.println("Class not found: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
-        }
-        catch (NoSuchFieldException e)
-        {
-            System.err.println("Field not found: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
-        }
-        catch (Exception e)
-        {
-            System.err.println("Error during reflection: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
-        }
-    }
-
-    public static double getDecayConstant(String decayConstant) throws Exception
-    {
-        try
-        {
-            Class<?> clazz = Class.forName(OnLattice2DGrid.fullName);
-            Field field = clazz.getDeclaredField(decayConstant);
-            Object value = field.get(null); // Static field, use 'null' for static access
-            return (Double) value;
-        }
-        catch (ClassNotFoundException e)
-        {
-            System.err.println("Class not found: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
-        }
-        catch (NoSuchFieldException e)
-        {
-            System.err.println("Field not found: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
-        }
-        catch (Exception e)
-        {
-            System.err.println("Error during reflection: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
-        }
-    }
-
-    public static double getRecoveryConstantOfA() throws Exception
-    {
-        try
-        {
-            Class<?> clazz = Class.forName(OnLattice2DGrid.fullName);
-            Field field = clazz.getDeclaredField("recoveryConstantOfA");
-            Object value = field.get(null);
-            return (Double) value;
-        }
-        catch (ClassNotFoundException e)
-        {
-            System.err.println("Class not found: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
-        }
-        catch (NoSuchFieldException e)
-        {
-            System.err.println("Field not found: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
-        }
-        catch (Exception e)
-        {
-            System.err.println("Error during reflection: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
-        }
-    }
-
-    public static double getRadiationInducedInfiltration() throws Exception
-    {
-        try
-        {
-            Class<?> clazz = Class.forName(OnLattice2DGrid.fullName);
-            Field field = clazz.getDeclaredField("radiationInducedInfiltration");
-            Object value = field.get(null);
-            return (Double) value;
-        }
-        catch (ClassNotFoundException e)
-        {
-            System.err.println("Class not found: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
-        }
-        catch (NoSuchFieldException e)
-        {
-            System.err.println("Field not found: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
-        }
-        catch (Exception e)
-        {
-            System.err.println("Error during reflection: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
-        }
     }
 
     public static void getImmuneResponse() throws Exception
@@ -657,23 +519,10 @@ class Lymphocytes
     public static double dieProb;
     public static int colorIndex = 0;
     public static int count;
-    public static double decayConstantOfL;
-    public static double tumorInfiltrationRate;
-    public static double radiationInducedInfiltration;
 
     public void Lymphocytes()
     {
         count = 0;
-        try
-        {
-            decayConstantOfL = CellFunctions.getDecayConstant("decayConstantOfL");
-            tumorInfiltrationRate = CellFunctions.getTumorInfiltrationRate();
-            radiationInducedInfiltration = CellFunctions.getRadiationInducedInfiltration();
-        }
-        catch (Exception e)
-        {
-            throw new RuntimeException(e);
-        }
     }
 }
 
@@ -828,6 +677,76 @@ abstract class Figure6 implements ModelParameters
     public static double recoveryConstantOfA = 0.045;
     public static double radiationInducedInfiltration = 4.6;
     public static double immuneSuppressionEffect = 0.5;
+}
+
+class FigureParameters
+{
+    public static double radiationSensitivityOfTumorCellsAlpha; //null
+    public static double radiationSensitivityOfTumorCellsBeta;  //null
+    public static double radiationSensitivityOfLymphocytesAlpha; //null
+    public static double radiationSensitivityOfLymphocytesBeta; //null
+    public static double tumorGrowthRate;
+    public static double tumorInfiltrationRate;
+    public static double rateOfCellKilling;
+    public static double decayConstantOfD;
+    public static double decayConstantOfL;
+    public static double recoveryConstantOfA ;
+    public static double radiationInducedInfiltration; //null
+    public static double immuneSuppressionEffect;
+
+    // Map field names to the corresponding class variables
+    public static Map<String, Double> parametersMap = new HashMap<>();
+
+    static {
+        // Add all parameters to the map
+        parametersMap.put("radiationSensitivityOfTumorCellsAlpha", radiationSensitivityOfTumorCellsAlpha);
+        parametersMap.put("radiationSensitivityOfTumorCellsBeta", radiationSensitivityOfTumorCellsBeta);
+        parametersMap.put("radiationSensitivityOfLymphocytesAlpha", radiationSensitivityOfLymphocytesAlpha);
+        parametersMap.put("radiationSensitivityOfLymphocytesBeta", radiationSensitivityOfLymphocytesBeta);
+        parametersMap.put("tumorGrowthRate", tumorGrowthRate);
+        parametersMap.put("tumorInfiltrationRate", tumorInfiltrationRate);
+        parametersMap.put("rateOfCellKilling", rateOfCellKilling);
+        parametersMap.put("decayConstantOfD", decayConstantOfD);
+        parametersMap.put("decayConstantOfL", decayConstantOfL);
+        parametersMap.put("recoveryConstantOfA", recoveryConstantOfA);
+        parametersMap.put("radiationInducedInfiltration", radiationInducedInfiltration);
+        parametersMap.put("immuneSuppressionEffect", immuneSuppressionEffect);
+    }
+
+    public static void loadParametersFromFigureClass() throws Exception
+    {
+        try
+        {
+            // Get the class dynamically based on the figure name
+            Class<?> clazz = Class.forName(OnLattice2DGrid.className);
+
+            // Iterate through the map and set values dynamically
+            for (String fieldName : parametersMap.keySet())
+            {
+                Field field = clazz.getDeclaredField(fieldName);
+                Object value = field.get(null);
+                parametersMap.put(fieldName, (Double) value);
+            }
+        }
+        catch (ClassNotFoundException e)
+        {
+            System.err.println("Class not found: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
+        catch (NoSuchFieldException e)
+        {
+            System.err.println("Field not found: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
+        catch (Exception e)
+        {
+            System.err.println("Error during reflection: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
+    }
 }
 
 public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
@@ -1503,6 +1422,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
         System.out.println("\nSave Probabilities to CSV: " + printProbabilities +
                 "\nSave GIF (slows code down): " + writeGIF + "\n");
 
+        FigureParameters.loadParametersFromFigureClass();
         int x = 100;
         int y = 100;
         int timesteps = 1000;
