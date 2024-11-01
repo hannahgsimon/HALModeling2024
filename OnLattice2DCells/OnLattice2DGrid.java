@@ -16,6 +16,8 @@ import java.util.List;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Random;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 //Author: Hannah Simon, hannahgsimon on Git
 
@@ -534,7 +536,7 @@ class FigParameters
             decayConstantOfL = 0.335;
             recoveryConstantOfA = 0.039;
             radiationInducedInfiltration = 0; //null
-            immuneSuppressionEffect = 0.012;
+            immuneSuppressionEffect = 0.031;
         }
         else if (figure == 3)
         {
@@ -549,7 +551,7 @@ class FigParameters
             decayConstantOfL = 0.045;
             recoveryConstantOfA = 0.045;
             radiationInducedInfiltration = 0; //null
-            immuneSuppressionEffect = 0.51;
+            immuneSuppressionEffect = 0.100;
         }
         else if (figure == 4)
         {
@@ -604,17 +606,84 @@ class FigParameters
     }
 }
 
+class ScenarioParameters
+{
+    char scenario;
+    public ScenarioParameters(char scenario)
+    {
+        this.scenario = scenario;
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
+        String dateTime = LocalDateTime.now().format(formatter);
+        String fileNameWithDate = OnLattice2DGrid.fileName1.replace(".csv", "_" + dateTime + ".csv");
+        OnLattice2DGrid.fullPath1 = OnLattice2DGrid.directory + "Scenario" + scenario + "\\" + OnLattice2DGrid.fileName1.replace(".csv", "_" + dateTime + ".csv");
+
+        if (scenario == 'A')
+        {
+            OnLattice2DGrid.figure = 2;
+            new FigParameters(OnLattice2DGrid.figure);
+            OnLattice2DGrid.totalRadiation = false; OnLattice2DGrid.centerRadiation = false; OnLattice2DGrid.spatialRadiation = false;
+            FigParameters.immuneSuppressionEffect = 0.031;
+        }
+        else if (scenario == 'B')
+        {
+            OnLattice2DGrid.figure = 3;
+            new FigParameters(OnLattice2DGrid.figure);
+            OnLattice2DGrid.totalRadiation = false; OnLattice2DGrid.centerRadiation = false; OnLattice2DGrid.spatialRadiation = false;
+            FigParameters.immuneSuppressionEffect = 0.1;
+        }
+        else if (scenario == 'C')
+        {
+            OnLattice2DGrid.figure = 3;
+            new FigParameters(OnLattice2DGrid.figure);
+            OnLattice2DGrid.baseRadiationDose = 0;
+            OnLattice2DGrid.appliedRadiationDose = 10;
+            OnLattice2DGrid.radiationTimesteps = List.of(200);
+            OnLattice2DGrid.totalRadiation = false; OnLattice2DGrid.centerRadiation = true; OnLattice2DGrid.spatialRadiation = false;
+            OnLattice2DGrid.targetPercentage = 0.7;
+            FigParameters.immuneSuppressionEffect = 0.1;
+        }
+        else if (scenario == 'D')
+        {
+            OnLattice2DGrid.figure = 3;
+            new FigParameters(OnLattice2DGrid.figure);
+            OnLattice2DGrid.baseRadiationDose = 0;
+            OnLattice2DGrid.appliedRadiationDose = 10;
+            OnLattice2DGrid.radiationTimesteps = List.of(200);
+            OnLattice2DGrid.totalRadiation = false; OnLattice2DGrid.centerRadiation = true; OnLattice2DGrid.spatialRadiation = false;
+            OnLattice2DGrid.targetPercentage = 1;
+            FigParameters.immuneSuppressionEffect = 0.1;
+        }
+        else if (scenario == 'E')
+        {
+            OnLattice2DGrid.figure = 3;
+            new FigParameters(OnLattice2DGrid.figure);
+            OnLattice2DGrid.baseRadiationDose = 0;
+            OnLattice2DGrid.appliedRadiationDose = 10;
+            OnLattice2DGrid.radiationTimesteps = List.of(200);
+            OnLattice2DGrid.totalRadiation = false; OnLattice2DGrid.centerRadiation = true; OnLattice2DGrid.spatialRadiation = false;
+            OnLattice2DGrid.targetPercentage = 0.85;
+            FigParameters.immuneSuppressionEffect = 0.1;
+        }
+        else
+        {
+            System.err.printf("Invalid scenario: %s.%nPlease provide a valid scenario (A, B, C, D, E) or set 'scenarioActive' to false.%n", scenario);
+            System.exit(0);
+        }
+    }
+}
+
 public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
 {
     Rand rng = new Rand();
     int[] divHood = Util.VonNeumannHood(false);
 
-    public static int figure = 3;
+    public static int figure = 2;
     public static int baseRadiationDose = 0, currentRadiationDose = baseRadiationDose, appliedRadiationDose = 10;
-    public static List<Integer> radiationTimesteps = List.of(100, 200);
-    public static boolean totalRadiation = false, centerRadiation = true, spatialRadiation = false;
-    public static double targetPercentage = 0.8;
+    public static List<Integer> radiationTimesteps = List.of(200);
+    public static boolean totalRadiation = false, centerRadiation = false, spatialRadiation = false;
+    public static double targetPercentage = 1;
     public static double thresholdPercentage = 0.8; public static int radius = 10;
+    public static boolean scenarioActive = true; public static char scenario = 'E';
 
     public static double immuneResponse, primaryImmuneResponse, secondaryImmuneResponse = 0;
     public static int newLymphocytesAttempted;
@@ -631,12 +700,13 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
 
     public static final String directory = "C:\\Users\\Hannah\\Documents\\HALModeling2024Outs\\";
     public static final String fileName1 = "TrialRunCounts.csv";
-    public static final String fullPath1 = directory + fileName1;
+    public static String fullPath1 = directory + fileName1;
     public static final String fileName2 = "TrialRunProbabilities.csv";
     public static final String fullPath2 = directory + fileName2;
     public static final String fileName3 = "LymphocyteNeighbors.csv";
     public static final String fullPath3 = directory + fileName3;
-    public static final boolean printProbabilities = true, writeGIF = false, printNeighbors = false;
+    public static final boolean printCounts = false, printProbabilities = false, printNeighbors = false;
+    public static boolean writeGIF = false;
 
     public OnLattice2DGrid(int x, int y)
     {
@@ -1129,14 +1199,12 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
         {
             if (timestep == 0)
             {
-//                writer.write("Timestep," + Lymphocytes.name + "," + TumorCells.name + "," + DoomedCells.name);
                 writer.write("Timestep,Lymphocytes,TriggeringCells,TumorCells,TumorCellsRad,DoomedCells," +
                         "DoomedCellsRad,Lymphocytes DieProb,Tumor DieProbRad,Tumor DieProbImm,Tumor DivProb," +
                         "SurvivingFractionTLast,PrimaryImmuneResponse,SecondaryImmuneResponse,ImmuneResponse," +
                         "LymphocyteMigrationAttempted,ImmuneSuppression");
                 writer.newLine();
             }
-            //writer.write(timestep + "," + Lymphocytes.count + "," + TumorCells.count + "," + DoomedCells.count);
             writer.write(timestep + "," + Lymphocytes.count + "," + TriggeringCells.count + "," + TumorCells.count + "," + TumorCells.countRad + "," +
                     DoomedCells.count + "," + DoomedCells.countRad + "," + Lymphocytes.dieProb + "," + TumorCells.dieProbRad + "," +
                     TumorCells.dieProbImm + "," + TumorCells.divProb + "," + TriggeringCells.SurvivingFractionTLast + "," +
@@ -1270,12 +1338,23 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
 
     public static void main (String[] args)
     {
-        new FigParameters(figure);
-
-        System.out.println("Figure " + figure + ":\nBase Radiation Dose: " + baseRadiationDose + " Gy" +
-                "\nApplied Radiation Dose: " + appliedRadiationDose + " Gy" +
-                "\nTimesteps Applied: " + radiationTimesteps + "\nTotal Radiation: " + totalRadiation +
-                "\nCenter Radiation: " + centerRadiation + "\nSpatial Radiation: " + spatialRadiation);
+        System.out.print("Scenario Active: " + scenarioActive);
+        if (scenarioActive)
+        {
+            System.out.print("    Scenario: " + scenario);
+            new ScenarioParameters(scenario);
+        }
+        else
+        {
+            new FigParameters(figure);
+        }
+        System.out.println("\nFigure: " + figure + "\nTotal Radiation: " + totalRadiation +
+                "   Center Radiation: " + centerRadiation + "    Spatial Radiation: " + spatialRadiation);
+        if (totalRadiation || centerRadiation || spatialRadiation)
+        {
+            System.out.println("Base Radiation Dose: " + baseRadiationDose + " Gy\nApplied Radiation Dose: " + appliedRadiationDose + " Gy" +
+                    "\nTimesteps Applied: " + radiationTimesteps);
+        }
         if (centerRadiation)
         {
             System.out.println("Center radiation target percentage is " + targetPercentage);
@@ -1284,13 +1363,17 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
         {
             System.out.println("Spatial radiation threshold percentage is " + thresholdPercentage + " and preset radius is " + radius);
         }
-        System.out.println("\nSave Probabilities to CSV: " + printProbabilities +
-                "\nSave GIF (slows code down): " + writeGIF + "\n");
+        if (!immuneSuppressionEffectThreshold)
+        {
+            System.out.println("Immune Suppression Effect: " + FigParameters.immuneSuppressionEffect);
+        }
+        System.out.println("\nSave Counts to CSV: " + printCounts +"   Save Probabilities to CSV: " + printProbabilities +
+                "   Save GIF (slows code down): " + writeGIF + "\n");
 
         int x = 100;
         int y = 100;
         int timesteps = 1000;
-        GridWindow win = new GridWindow(x, y, 5);
+        GridWindow win = new GridWindow(x, y, 6);
         OnLattice2DGrid model = new OnLattice2DGrid(x, y);
         for (int i = 0; i < model.xDim; i++)
         {
@@ -1306,7 +1389,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
         new TriggeringCells().TriggeringCells();
 
         model.Init(win, model);
-        model.saveCountsToCSV(fullPath1, false, 0);
+        if (printCounts) model.saveCountsToCSV(fullPath1, false, 0);
         if (printProbabilities) model.saveProbabilitiesToCSV(fullPath2, false, 0, false);
         if (printNeighbors) model.saveLymphocyteNeighborstoCSV(fullPath3, false, 0);
 
@@ -1350,10 +1433,11 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
                 new CellFunctions().lymphocyteMigration(model, win);
             }
 
-            model.saveCountsToCSV(fullPath1, true, i);
+            if (printCounts) model.saveCountsToCSV(fullPath1, true, i);
             if (printProbabilities) model.saveProbabilitiesToCSV(fullPath2, true, i, false);
             if (printNeighbors) model.saveLymphocyteNeighborstoCSV(fullPath3, true, i);
 
+            if (i == timesteps) writeGIF = true;
             model.DrawModelandUpdateProb(win, gif); //get occupied spaces to use for stepCells method, rerun if model pop goes to 0
 
             //if (model.Pop() == 0)
@@ -1362,7 +1446,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
                 System.out.println("Timestep tumor population reached 0: " + i + "\n");
                 break;
                 /*model.Init(win, model);
-                model.saveCountsToCSV(fullPath1, true, 0);
+                if (printCounts) model.saveCountsToCSV(fullPath1, true, 0);
                 if (printProbabilities) model.saveProbabilitiesToCSV(fullPath2, true, 0, win, false);
                 if (printNeighbors) model.saveLymphocyteNeighborstoCSV(fullPath3, true, 0);
                 i = 1;*/
