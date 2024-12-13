@@ -13,6 +13,7 @@ In the OnLattice2DCells folder is the OnLattice2DGrid class, a component of the 
 - Lattice-Based Simulation: Supports cell migration, proliferation, and other on-lattice behaviors.
 - Customizable Interactions: Designed to work with various cell functions by integrating the CellFunctions class.
 - Efficient Updates: Optimized for adding and removing multiple elements at each timestep, ensuring scalability for large simulations.
+- Each timestep 1 random triggering cell is removed. Lymphocyte migration depends on the presence of triggering cells. 
 
 ## Prerequisites
 - Java Development Kit (JDK): Version 8 or higher.
@@ -62,8 +63,8 @@ The simulation starts with the below initial conditions (modifiable in the code)
     - *printNeighbors = false*
 - **Write GIF:** Disabled. Outputs a GIF file of the simulation.
     - *public static boolean writeGIF = false;*
-- Each time step 1 triggering cell is removed. Lymphocyte migration depends on the presence of triggering cells. 
-
+- **Immune Suppression Effect Threshold:** Disabled. When enabled, the immune suppression effect (*𝜅*) dynamically adjusts at each timestep to its threshold value, as defined by equation 5 [2].
+    - *public static boolean immuneSuppressionEffectThreshold = false;*
 
 ## Contributing
 Contributions are welcome! To contribute:
