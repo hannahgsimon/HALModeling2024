@@ -681,7 +681,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
     public static int baseRadiationDose = 0, currentRadiationDose = baseRadiationDose, appliedRadiationDose = 10;
     public static List<Integer> radiationTimesteps = List.of(200);
     public static boolean totalRadiation = false, centerRadiation = true, spatialRadiation = false;
-    public static double targetPercentage = 1;
+    public static double targetPercentage = 0.7;
     public static double thresholdPercentage = 0.8; public static int radius = 10;
     public static boolean scenarioActive = false; public static char scenario = 'A';
 
@@ -720,6 +720,37 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
                 (centerRadiation && spatialRadiation))
         {
             System.err.println("Two types of radiation are on; choose one for the model to run, or will not run as intended.");
+            System.exit(0);
+        }
+        if (centerRadiation && (targetPercentage <= 0 || targetPercentage > 1))
+        {
+            System.err.println(
+                    "Error: Target percentage for center radiation must be greater than 0 and less than or equal to 1.\n" +
+                            "Current values:\n" +
+                            "  Center Radiation: " + centerRadiation + "\n" +
+                            "  Target Percentage: " + targetPercentage + "\n" +
+                            "Please update the targetPercentage to a valid value.");
+            System.exit(0);
+        }
+        else if (spatialRadiation && (thresholdPercentage <= 0 || thresholdPercentage > 1))
+        {
+            System.err.println(
+                    "Error: Threshold percentage for spatial radiation must be greater than 0 and less than or equal to 1.\n" +
+                            "Current values:\n" +
+                            "  Spatial Radiation: " + spatialRadiation + "\n" +
+                            "  Threshold Percentage: " + thresholdPercentage + "\n" +
+                            "Please update the thresholdPercentage to a valid value.");
+            System.exit(0);
+        }
+        else if (spatialRadiation && (radius <= 0 || radius > xDim/2 || radius > yDim/2))
+        {
+            System.err.println(
+                    "Error: Radius for spatial radiation must be greater than 0 and less than or equal to half the grid dimensions.\n" +
+                            "Current values:\n" +
+                            "  Spatial Radiation: " + spatialRadiation + "\n" +
+                            "  Radius: " + radius + "\n" +
+                            "  Grid Dimensions: xDim = " + xDim + ", yDim = " + yDim + "\n" +
+                            "Please update the radius to a valid value.");
             System.exit(0);
         }
 
@@ -1280,17 +1311,17 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
                 for (int i = 0; i < length; i++)
                 {
                     OnLattice2DCells.CellFunctions cell = GetAgent(i);
-                    if (cell != null && cell.type == CellFunctions.Type.LYMPHOCYTE)
+                    if (cell != null)
                     {
                         writer.write(timestep + "," + cell.type + "," + lymphocyteNeighbors[cell.Xsq()][cell.Ysq()]);
                         writer.newLine();
                     }
                     else
                     {
-                        /*cell = NewAgentSQ(i);
+                        cell = NewAgentSQ(i);
                         writer.write(timestep + ",empty," + lymphocyteNeighbors[cell.Xsq()][cell.Ysq()]);
                         writer.newLine();
-                        cell.Dispose();*/
+                        cell.Dispose();
                     }
                 }
                 /* Alternate Visual Format:
