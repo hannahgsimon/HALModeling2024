@@ -26,17 +26,16 @@ Code to develop and analyze statistical graphs for this model can be found at ht
 - Doomed Cells: 𝐷<sub>𝑛+1</sub> = (1−𝜆<sub>𝐷</sub>) 𝐷<sub>𝑛</sub> + (1−𝑆<sub>𝑇</sub>) 𝑇<sub>𝑛</sub> 𝑒<sup>𝜇</sup> + 𝑆<sub>𝑇</sub> 𝑇<sub>𝑛</sub> 𝑒<sup>𝜇</sup> (1−𝑒<sup>−𝑍<sub>𝑛</sub></sup>)
 - Surviving Fraction: 𝑆 = 𝑒<sup>(−𝛼𝑑<sub>𝑛</sub>−𝛽𝑑<sub>𝑛</sub><sup>2</sup>)</sup>
 
-Key:
-| Symbol                      | Description                        |
-|-----------------------------|------------------------------------|
-| $(\alpha, \beta)_{T,L}$      | Radiation sensitivity              |
-| $\mu$                        | Tumor growth rate                  |
-| $\rho$                       | Tumor infiltration rate            |
-| $w$                          | Rate of cell killing               |
-| $\lambda_{D,L}$            | Decay constant                     |
-| $\psi$                       | Radiation induced infiltration     |
-| $\kappa$                     | Immune suppression effect          |
-| $d_n$                        | Radiation dose                     |
+### Key
+- **$(\alpha, \beta)_{T,L}$**: Radiation sensitivity  
+- **$\mu$**: Tumor growth rate  
+- **$\rho$**: Tumor infiltration rate  
+- **$w$**: Rate of cell killing  
+- **$\lambda_{D,L}$**: Decay constant  
+- **$\psi$**: Radiation-induced infiltration  
+- **$\kappa$**: Immune suppression effect  
+- **$d_n$**: Radiation dose  
+
 
 ## Spatial Model Features
 - At each timestep, each agent (cell) can have one of many outcomes, such as death, division, and survival.
