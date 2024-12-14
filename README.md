@@ -38,7 +38,7 @@ Code to develop and analyze statistical graphs for this model can be found at ht
 
 
 ## Spatial Model Features
-- At each timestep, each agent (cell) can have one of many outcomes, such as death, division, and survival.
+- At each timestep, each agent (cell) can have one of several outcomes, such as death, division, and survival.
 - Agents:
   1. $${\color{blue}Lymphocytes} \space {\color{blue}(blue)}$$
        - Lymphocyte Migration: 𝜌𝑇<sub>𝑛</sub> + 𝜓𝜀𝐴<sub>𝑛</sub>𝑇<sub>𝑛</sub>  
@@ -74,78 +74,78 @@ Code to develop and analyze statistical graphs for this model can be found at ht
 Before running the code, you will need to update the file paths if any of the following booleans are set to true: printCounts, printProbabilities, printNeighbors, or writeGIF.
 
 The simulation starts with the below initial conditions (modifiable in the code). You can update these parameters in the indicated lines of code to fit your specific simulation requirements.
-- **Figure:** 2. There are figures 2, 3, 4, 5, and 6, each of which have different parameters as outlined in the FigParameters class.
+- **<ins>Figure</ins>:** 2. There are figures 2, 3, 4, 5, and 6, each of which have different parameters as outlined in the FigParameters class.
      ```java
     public static int figure = 2;
      ```
-- **Scenario Active:** Disabled. Used for simulation testing of scenarios A, B, C, or D to study birfurcation of a tumor from controlled growth (immune limited) to uncontrolled growth (immune escape). The threshold is determined by the value of immune suppression (*𝜅*). The "Simulation GIFs" folder contains GIFs illustrating these scenarios.
+- **<ins>Scenario Active</ins>:** Disabled. Used for simulation testing of scenarios A, B, C, or D to study birfurcation of a tumor from controlled growth (immune limited) to uncontrolled growth (immune escape). The threshold is determined by the value of immune suppression (*𝜅*). The "Simulation GIFs" folder contains GIFs illustrating these scenarios.
     ```java
     public static boolean scenarioActive = false; public static char scenario = 'A';
     ```
-- **Initial Cell Populations at Timestep 0:** 0 lymphocytes, 1 tumor cell, & 500 triggering cells. The tumor cells are initialized at the center of the grid, while all other cells are randomly distributed in the remaining spaces.
+- **<ins>Initial Cell Populations at Timestep 0</ins>:** 0 lymphocytes, 1 tumor cell, & 500 triggering cells. The tumor cells are initialized at the center of the grid, while all other cells are randomly distributed in the remaining spaces.
     ```java
     int lymphocitePopulation = 0;
     int tumorSize = 1;
     int triggeringPopulation = 500;
     ```
-- **Grid Size:** 100 x 100 cells
+- **<ins>Grid Size</ins>:** 100 x 100 cells
     ```java
     int x = 100;
     int y = 100;
     ```
-- **Timesteps:** 1000. The total number of timesteps for which the simulation runs.
+- **<ins>Timesteps</ins>:** 1000. The total number of timesteps for which the simulation runs.
     ```java
     int timesteps = 1000;
     ```
-- **Total Radiation:** Disabled. Radiates the entire grid.
+- **<ins>Total Radiation</ins>:** Disabled. Radiates the entire grid.
     ```java
     public static boolean totalRadiation = false
     ```
-- **Center Radiation:** Enabled. Calculates the tumor's center at that timestep and radiates a specified percentage (modifiable via *public static double targetPercentage = 0.7;*) of the tumor in a circular area centered on that point.
+- **<ins>Center Radiation</ins>:** Enabled. Calculates the tumor's center at that timestep and radiates a specified percentage (modifiable via *public static double targetPercentage = 0.7;*) of the tumor in a circular area centered on that point.
     ```java
     centerRadiation = true
     ```
-- **Spatial Radiation:** Disabled. Calculates the tumor's center at the current timestep and defines a circular area around it with a specified radius (modifiable via *public static int radius = 10;*). Additional circular areas are calculated to fit within the tumor, maintaining a 2-cell gap between adjacent circles and a 1-cell buffer between each circle and the tumor's edge. Each circle is radiated if the percentage of tumor and doomed cells within it meets or exceeds the specified threshold (modifiable via *public static double thresholdPercentage = 0.8;*).
+- **<ins>Spatial Radiation</ins>:** Disabled. Calculates the tumor's center at the current timestep and defines a circular area around it with a specified radius (modifiable via *public static int radius = 10;*). Additional circular areas are calculated to fit within the tumor, maintaining a 2-cell gap between adjacent circles and a 1-cell buffer between each circle and the tumor's edge. Each circle is radiated if the percentage of tumor and doomed cells within it meets or exceeds the specified threshold (modifiable via *public static double thresholdPercentage = 0.8;*).
     ```java
     spatialRadiation = false
     ```
-- **Base Radiation Dose:** *0 Gy*. The default radiation dose applied to the entire grid during each timestep when radiation is turned off.
+- **<ins>Base Radiation Dose</ins>:** *0 Gy*. The default radiation dose applied to the entire grid during each timestep when radiation is turned off.
     ```java
     public static int baseRadiationDose = 0
     ```
-- **Applied Radiation Dose:** *10 Gy*. The radiation dose delivered using the specified method (total, center, or spatial) during active radiation timesteps.
+- **<ins>Applied Radiation Dose</ins>:** *10 Gy*. The radiation dose delivered using the specified method (total, center, or spatial) during active radiation timesteps.
     ```java
     appliedRadiationDose = 10
     ```
-- **Radiation Timesteps:** 200. The timesteps during which radiation is applied using the specified method (total, center, or spatial).
+- **<ins>Radiation Timesteps</ins>:** 200. The timesteps during which radiation is applied using the specified method (total, center, or spatial).
     ```java
     public static List<Integer> radiationTimesteps = List.of(200);
     ```
-- Neighborhood Radius for Lymphocyte Migration: 0.75. The percentage of the minimum grid dimension within which lymphocytes can migrate. The closer to the center of the tumor an empty space is, the higher the probability a lymphocyte has of migrating there.
+- **<ins>Neighborhood Radius for Lymphocyte Migration</ins>:** 0.75. The percentage of the minimum grid dimension within which lymphocytes can migrate. The closer to the center of the tumor an empty space is, the higher the probability a lymphocyte has of migrating there.
     ```java
     double radiusFraction = 0.75;
     ```
-- Lymphocyte Density Management: 4. The maximum number of lymphocyte neighbors any grid space can have in an adjacent space (including diagonally).
+- **<ins>Lymphocyte Density Management</ins>:** 4. The maximum number of lymphocyte neighbors any grid space can have in an adjacent space (including diagonally).
     ```java
     int maxNeighbors = 4;
     ```
-- **Print Counts:** Disabled. Outputs a CSV file with the following data at each timestep: populations of lymphocytes, triggering cells, all tumor cells, tumor cells previously exposed to radiation, all doomed cells, and doomed cells that are dead from radiation. Additionally, for the entire grid, it records the probabilities of lymphocyte death, tumor cell death from radiation, tumor cell death from immune system activity, and tumor cell division. It also prints the average surviving fraction of tumor cells (including the surviving fraction for radiation-exposed tumor cells during their last moment of radiation), primary immune response, secondary immune response, total immune response, the number of lymphocytes attempting to migrate onto the grid, and immune suppression effect.
+- **<ins>Print Counts</ins>:** Disabled. Outputs a CSV file with the following data at each timestep: populations of lymphocytes, triggering cells, all tumor cells, tumor cells previously exposed to radiation, all doomed cells, and doomed cells that are dead from radiation. Additionally, for the entire grid, it records the probabilities of lymphocyte death, tumor cell death from radiation, tumor cell death from immune system activity, and tumor cell division. It also prints the average surviving fraction of tumor cells (including the surviving fraction for radiation-exposed tumor cells during their last moment of radiation), primary immune response, secondary immune response, total immune response, the number of lymphocytes attempting to migrate onto the grid, and immune suppression effect.
     ```java
     public static final boolean printCounts = false
     ```
-- **Print Probabilities:** Disabled. Outputs a CSV file with the following data for every cell on the grid at each timestep: type, color, whether it was previously exposed to radiation, the dose of radiation received that timestep, whether the cell is dead from radiation. It also records the probabilities of death, activation, death from radiation, death from immune system activity, and division. It also prints the number of lymphocyte neighbors (including diagonally).
+- **<ins>Print Probabilities</ins>:** Disabled. Outputs a CSV file with the following data for every cell on the grid at each timestep: type, color, whether it was previously exposed to radiation, the dose of radiation received that timestep, whether the cell is dead from radiation. It also records the probabilities of death, activation, death from radiation, death from immune system activity, and division. It also prints the number of lymphocyte neighbors (including diagonally).
     ```java
     printProbabilities = false
     ```
-- **Print Neighbors:** Disabled. Outputs a CSV file with the number of lymphocyte neighbors (including diagonally) at each timestep, for both every cell on the grid and empty grid spaces.
+- **<ins>Print Neighbors</ins>:** Disabled. Outputs a CSV file with the number of lymphocyte neighbors (including diagonally) at each timestep, for both every cell on the grid and empty grid spaces.
     ```java
     printNeighbors = false
     ```
-- **Write GIF:** Disabled. Outputs a GIF file of the simulation.
+- **<ins>Write GIF</ins>:** Disabled. Outputs a GIF file of the simulation.
     ```java
     public static boolean writeGIF = false;
     ```
-- **Immune Suppression Effect Threshold:** Disabled. When enabled, the immune suppression effect (*𝜅*) dynamically adjusts at each timestep to its threshold value, as defined by equation 5 [2].
+- **<ins>Immune Suppression Effect Threshold</ins>:** Disabled. When enabled, the immune suppression effect (*𝜅*) dynamically adjusts at each timestep to its threshold value, as defined by equation 5 [2].
     ```java
     public static boolean immuneSuppressionEffectThreshold = false;
     ```
