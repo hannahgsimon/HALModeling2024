@@ -1,19 +1,43 @@
 # OnLattice2DGrid
 
 ## Overview
-In the OnLattice2DCells folder is the OnLattice2DGrid class, a component of the HAL Modeling 2024 project. This class extends AgentGrid2D<CellFunctions> and serves as the foundation for modeling and simulating tumor and immune cell populations in a 2D grid environment. It supports agent-based simulations by facilitating cell interactions, movement, and other on-lattice dynamics. This Java code uses the Hybrid Automata Library (HAL) [1] to create a spatial agent-based model of an ordinary differential equations model [2] to simulate radio-immune response to spatially fractionated radiotherapy.
+In the OnLattice2DCells folder is the OnLattice2DGrid class, a component of the HALModeling2024 project. This class extends AgentGrid2D<CellFunctions> and serves as the foundation for modeling and simulating tumor and immune cell populations in a 2D grid environment. It supports agent-based simulations by facilitating cell interactions, movement, and other on-lattice dynamics. This Java code uses the Hybrid Automata Library (HAL) [1] to create a spatial agent-based model of an ordinary differential equations model [2] to simulate radio-immune response to spatially fractionated radiotherapy.
+
+## Radio-Immune Response Ordinary Differential Equations (ODE) Model [2]
+- Tumor Cells: 𝑇<sub>𝑛+1</sub> = 𝑇<sub>𝑛</sub> 𝑒<sup>(𝜇−𝑍<sub>𝑛</sub>)</sup> 𝑆<sub>𝑇</sub>
+- Lymphocytes: 𝐿<sub>𝑛+1</sub> = (1−𝜆<sub>𝐿</sub>) 𝑆<sub>𝐿</sub> 𝐿<sub>𝑛</sub> + 𝜌𝑇<sub>𝑛</sub> + 𝜓𝜀𝐴<sub>𝑛</sub>𝑇<sub>𝑛</sub>
+- Triggering Cells: 𝐴<sub>𝑛+1</sub> = (1−𝑒) (𝐴<sub>𝑛</sub> 𝑆<sub>𝑖</sub> + ∆𝐴<sub>𝑛</sub>)
+- Activation Function: 𝑒 = tanh⁡((1−𝑆<sub>𝑇</sub>) 𝑉<sub>𝐶</sub>)
+- Primary Immune Response: 𝑍<sub>𝑝,𝑛</sub> = $\frac{wL_{n}}{1 + \frac{\kappa T_{n}^{2/3} L_{n}}{1}}$
+- Secondary Immune Response: $Z_{s,n} = \sum_{i=0}^{n} \gamma \frac{(1 + c_i)}{(r + c_i)} Z_{p,i}$
+- Doomed Cells: 𝐷<sub>𝑛+1</sub> = (1−𝜆<sub>𝐷</sub>) 𝐷<sub>𝑛</sub> + (1−𝑆<sub>𝑇</sub>) 𝑇<sub>𝑛</sub> 𝑒<sup>𝜇</sup> + 𝑆<sub>𝑇</sub> 𝑇<sub>𝑛</sub> 𝑒<sup>𝜇</sup> (1−𝑒<sup>−𝑍<sub>𝑛</sub></sup>)
+- Surviving Fraction: 𝑆 = 𝑒<sup>(−𝛼𝑑<sub>𝑛</sub>−𝛽𝑑<sub>𝑛</sub><sup>2</sup>)</sup>
 
 ## Features
+- At each timestep, each agent (cell) can have one of many outcomes, such as death, division, and survival.
 - Agents:
-  1. Lymphocytes (blue)
-  2. Triggering Cells (immune cells that attract lymphocytes to the tumor site, green)
-  3. Tumor Cells (red)
-  4. Doomed Cells (dead tumor cells, yellow)
-- Agent Management: Tracks and manages agents (e.g., tumor and immune cells) within the 2D grid.
+  1. $${\color{blue}Lymphocytes} \space {\color{blue}(blue)}$$
+       - Lymphocyte Migration (depends on the presence of triggering cells): 𝜌𝑇<sub>𝑛</sub> + 𝜓𝜀𝐴<sub>𝑛</sub>𝑇<sub>𝑛</sub>
+       - Survival: 𝑆<sub>𝐿</sub> (1−𝜆<sub>𝐿</sub>)
+       - Removal by Radiation: 1−𝑆<sub>𝐿</sub>
+       - Removal by Exhaustion: 𝑆<sub>𝐿</sub> 𝜆<sub>𝐿</sub>
+  2. $${\color{lightgreen}\text{Triggering Cells (immune cells that attract lymphocytes to the tumor site, green)}}$$
+       - Survival: 𝜆<sub>𝐴</sub> (1−𝑆<sub>𝐿</sub>) (1−𝜀) + 𝑆<sub>𝑖</sub> (1−𝜀)
+       - Removal by Radiation: (1−𝑆<sub>𝑖</sub>) (1−𝜆<sub>𝐴</sub>)
+       - Removal by Activation: (1−𝑆<sub>𝑖</sub>) 𝜆<sub>𝐴</sub> 𝜀 + 𝑆<sub>𝑖</sub> 𝜀
+       - Each timestep 1 random triggering cell is removed.
+  3. $${\color{red}Tumor\ Cells\ (red)}$$
+       - Survival: 𝑆<sub>𝑇</sub> (1−𝑍<sub>𝑛</sub>) (1−𝜇)
+       - Division: 𝑆<sub>𝑇</sub> (1−𝑍<sub>𝑛</sub>) 𝜇
+       - Doomed by Radiation: 1−𝑆<sub>𝑇</sub>
+       - Doomed by Immune System: 𝑆<sub>𝑇</sub> 𝑍<sub>𝑛</sub>
+  4. $${\color{yellow}Doomed} \space {\color{yellow}Cells} \space {\color{yellow}(dead} \space {\color{yellow}tumor} \space {\color{yellow}cells,} \space {\color{yellow}yellow)}$$
+       - Remain on Grid: 1−𝜆<sub>𝐷</sub>
+       - Clearance: 𝜆<sub>𝐷</sub>
+- Agent Management: Tracks and manages agents within the 2D grid.
 - Lattice-Based Simulation: Supports cell migration, proliferation, and other on-lattice behaviors.
 - Customizable Interactions: Designed to work with various cell functions by integrating the CellFunctions class.
 - Efficient Updates: Optimized for adding and removing multiple elements at each timestep, ensuring scalability for large simulations.
-- Each timestep 1 random triggering cell is removed. Lymphocyte migration depends on the presence of triggering cells. 
 
 ## Prerequisites
 - Java Development Kit (JDK): Version 8 or higher.
@@ -45,7 +69,7 @@ The simulation starts with the below initial conditions (modifiable in the code)
     - *int timesteps = 1000;*
 - **Total Radiation:** Disabled. Radiates the entire grid.
     - *public static boolean totalRadiation = false*
-- **Center Radiation:** Enabled. Calculates the tumor's center at that timestep and radiates a specified percentage (modifiable via *public static double targetPercentage = 1;*) of the tumor in a circular area centered on that point.
+- **Center Radiation:** Enabled. Calculates the tumor's center at that timestep and radiates a specified percentage (modifiable via *public static double targetPercentage = 0.7;*) of the tumor in a circular area centered on that point.
     - *centerRadiation = true*
 - **Spatial Radiation:** Disabled. Calculates the tumor's center at the current timestep and defines a circular area around it with a specified radius (modifiable via *public static int radius = 10;*). Additional circular areas are calculated to fit within the tumor, maintaining a 2-cell gap between adjacent circles and a 1-cell buffer between each circle and the tumor's edge. Each circle is radiated if the percentage of tumor and doomed cells within it meets or exceeds the specified threshold (modifiable via *public static double thresholdPercentage = 0.8;*).
     - *spatialRadiation = false*
@@ -57,9 +81,9 @@ The simulation starts with the below initial conditions (modifiable in the code)
     - *public static List<Integer> radiationTimesteps = List.of(200);*
 - **Print Counts:** Disabled. Outputs a CSV file with the following data at each timestep: populations of lymphocytes, triggering cells, all tumor cells, tumor cells previously exposed to radiation, all doomed cells, and doomed cells that are dead from radiation. Additionally, for the entire grid, it records the probabilities of lymphocyte death, tumor cell death from radiation, tumor cell death from immune system activity, and tumor cell division. It also prints the average surviving fraction of tumor cells (including the surviving fraction for radiation-exposed tumor cells during their last moment of radiation), primary immune response, secondary immune response, total immune response, the number of lymphocytes attempting to migrate onto the grid, and immune suppression effect.
     - *public static final boolean printCounts = false*
-- **Print Probabilities:** Disabled. Outputs a CSV file with the following data for every cell on the grid at each timestep: type, color, whether it was previously exposed to radiation, the dose of radiation received that timestep, whether the cell is dead from radiation. It also records the probabilities of death, activation, death from radiation, death from immune system activity, and division. It also prints the number of lymphocyte neighbors in an adjacent cell (including diagonally).
+- **Print Probabilities:** Disabled. Outputs a CSV file with the following data for every cell on the grid at each timestep: type, color, whether it was previously exposed to radiation, the dose of radiation received that timestep, whether the cell is dead from radiation. It also records the probabilities of death, activation, death from radiation, death from immune system activity, and division. It also prints the number of lymphocyte neighbors (including diagonally).
     - *printProbabilities = false*
-- **Print Neighbors:** Disabled. 
+- **Print Neighbors:** Disabled. Outputs a CSV file with the number of lymphocyte neighbors (including diagonally) at each timestep, for both every cell on the grid and empty grid spaces.
     - *printNeighbors = false*
 - **Write GIF:** Disabled. Outputs a GIF file of the simulation.
     - *public static boolean writeGIF = false;*
