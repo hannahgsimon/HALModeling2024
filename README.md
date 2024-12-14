@@ -68,6 +68,7 @@ Code to develop and analyze statistical graphs for this model can be found at ht
 - Agent Management: Tracks and manages agents within the 2D grid.
 - Lattice-Based Simulation: Supports cell migration, proliferation, and other on-lattice behaviors.
 - Customizable Interactions: Designed to work with various cell functions by integrating the CellFunctions class.
+- Customizable Parameters: The script allows users to modify key simulation parameters to study different scenarios.
 - Efficient Updates: Optimized for adding and removing multiple elements at each timestep, ensuring scalability for large simulations.
 
 ## Usage
