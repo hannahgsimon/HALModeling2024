@@ -1,7 +1,20 @@
 # OnLattice2DGrid
 
 ## Overview
-In the OnLattice2DCells folder is the OnLattice2DGrid class, a component of the HALModeling2024 project. This class extends AgentGrid2D<CellFunctions> and serves as the foundation for modeling and simulating tumor and immune cell populations in a 2D grid environment. It supports agent-based simulations by facilitating cell interactions, movement, and other on-lattice dynamics. This Java code uses the Hybrid Automata Library (HAL) [1] to create a spatial agent-based model of an ordinary differential equations model [2] to simulate radio-immune response to spatially fractionated radiotherapy.
+In the "OnLattice2DCells" folder is the OnLattice2DGrid class, a component of the HALModeling2024 project. This class extends AgentGrid2D<CellFunctions> and serves as the foundation for modeling and simulating tumor and immune cell populations in a 2D grid environment. It supports agent-based simulations by facilitating cell interactions, movement, and other on-lattice dynamics. This Java code uses the Hybrid Automata Library (HAL) [1] to create a spatial agent-based model of an ordinary differential equations model [2] to simulate radio-immune response to spatially fractionated radiotherapy.
+
+Code to develop and analyze statistical graphs for this model can be found at https://github.com/hannahgsimon/HALModeling2024Graphs.
+
+## Prerequisites
+- Java Development Kit (JDK): Version 8 or higher.
+- HAL Framework: Ensure the HAL framework dependencies are installed and properly configured.
+
+## Installation
+1. Clone the repository:
+    - git clone https://github.com/hannahgsimon/HALModeling2024.git
+2. Navigate to the project directory: cd HALModeling2024/OnLattice2DCells
+3. Import the project into your preferred Java IDE.
+4. Build the project to ensure all dependencies are resolved.
 
 ## Radio-Immune Response Ordinary Differential Equations (ODE) Model [2]
 - Tumor Cells: 𝑇<sub>𝑛+1</sub> = 𝑇<sub>𝑛</sub> 𝑒<sup>(𝜇−𝑍<sub>𝑛</sub>)</sup> 𝑆<sub>𝑇</sub>
@@ -13,11 +26,28 @@ In the OnLattice2DCells folder is the OnLattice2DGrid class, a component of the 
 - Doomed Cells: 𝐷<sub>𝑛+1</sub> = (1−𝜆<sub>𝐷</sub>) 𝐷<sub>𝑛</sub> + (1−𝑆<sub>𝑇</sub>) 𝑇<sub>𝑛</sub> 𝑒<sup>𝜇</sup> + 𝑆<sub>𝑇</sub> 𝑇<sub>𝑛</sub> 𝑒<sup>𝜇</sup> (1−𝑒<sup>−𝑍<sub>𝑛</sub></sup>)
 - Surviving Fraction: 𝑆 = 𝑒<sup>(−𝛼𝑑<sub>𝑛</sub>−𝛽𝑑<sub>𝑛</sub><sup>2</sup>)</sup>
 
-## Features
+Key:
+| Symbol                      | Description                        |
+|-----------------------------|------------------------------------|
+| $(\alpha, \beta)_{T,L}$      | Radiation sensitivity              |
+| $\mu$                        | Tumor growth rate                  |
+| $\rho$                       | Tumor infiltration rate            |
+| $w$                          | Rate of cell killing               |
+| $\lambda_{D,L}$            | Decay constant                     |
+| $\psi$                       | Radiation induced infiltration     |
+| $\kappa$                     | Immune suppression effect          |
+| $d_n$                        | Radiation dose                     |
+
+## Spatial Model Features
 - At each timestep, each agent (cell) can have one of many outcomes, such as death, division, and survival.
 - Agents:
   1. $${\color{blue}Lymphocytes} \space {\color{blue}(blue)}$$
-       - Lymphocyte Migration (depends on the presence of triggering cells): 𝜌𝑇<sub>𝑛</sub> + 𝜓𝜀𝐴<sub>𝑛</sub>𝑇<sub>𝑛</sub>
+       - Lymphocyte Migration: 𝜌𝑇<sub>𝑛</sub> + 𝜓𝜀𝐴<sub>𝑛</sub>𝑇<sub>𝑛</sub>
+           - Depends on the presence of triggering cells:
+             *if (TriggeringCells.count > 0)
+            {
+                new CellFunctions().lymphocyteMigration(model, win);
+            }*
        - Survival: 𝑆<sub>𝐿</sub> (1−𝜆<sub>𝐿</sub>)
        - Removal by Radiation: 1−𝑆<sub>𝐿</sub>
        - Removal by Exhaustion: 𝑆<sub>𝐿</sub> 𝜆<sub>𝐿</sub>
@@ -39,26 +69,15 @@ In the OnLattice2DCells folder is the OnLattice2DGrid class, a component of the 
 - Customizable Interactions: Designed to work with various cell functions by integrating the CellFunctions class.
 - Efficient Updates: Optimized for adding and removing multiple elements at each timestep, ensuring scalability for large simulations.
 
-## Prerequisites
-- Java Development Kit (JDK): Version 8 or higher.
-- HAL Framework: Ensure the HAL framework dependencies are installed and properly configured.
-
-## Installation
-1. Clone the repository:
-    - git clone https://github.com/hannahgsimon/HALModeling2024.git
-2. Navigate to the project directory: cd HALModeling2024/OnLattice2DCells
-3. Import the project into your preferred Java IDE (e.g., Microsoft Visual Studio Code, IntelliJ IDEA, Eclipse).
-4. Build the project to ensure all dependencies are resolved.
-
 ## Usage
 Before running the code, you will need to update the file paths if any of the following booleans are set to true: printCounts, printProbabilities, printNeighbors, or writeGIF.
 
 The simulation starts with the below initial conditions (modifiable in the code). You can update these parameters in the indicated lines of code to fit your specific simulation requirements.
 - **Figure:** 2. There are figures 2, 3, 4, 5, and 6, each of which have different parameters as outlined in the FigParameters class.
     - *public static int figure = 2;*
-- **Scenario Active:** false. If true, used for simulation testing of scenarios A, B, C, or D to study birfurcation of a tumor from controlled growth (immune limited) to uncontrolled growth (immune escape). The threshold is due to the value of immune suppression (*𝜅*).
+- **Scenario Active:** Disabled. Used for simulation testing of scenarios A, B, C, or D to study birfurcation of a tumor from controlled growth (immune limited) to uncontrolled growth (immune escape). The threshold is determined by the value of immune suppression (*𝜅*). The "Simulation GIFs" folder contains GIFs illustrating these scenarios.
     - *public static boolean scenarioActive = false; public static char scenario = 'A';*
-- **Initial Cell Populations at Timestep 0:** 0 lymphocytes, 1 tumor cell, & 500 triggering cells
+- **Initial Cell Populations at Timestep 0:** 0 lymphocytes, 1 tumor cell, & 500 triggering cells. The tumor cells are initialized at the center of the grid, while all other cells are randomly distributed in the remaining spaces.
     - *int lymphocitePopulation = 0;
         int tumorSize = 1;
         int triggeringPopulation = 500;*
@@ -79,6 +98,10 @@ The simulation starts with the below initial conditions (modifiable in the code)
     - *appliedRadiationDose = 10*
 - **Radiation Timesteps:** 200. The timesteps during which radiation is applied using the specified method (total, center, or spatial).
     - *public static List<Integer> radiationTimesteps = List.of(200);*
+- Neighborhood Radius for Lymphocyte Migration: 0.75. The percentage of the minimum grid dimension within which lymphocytes can migrate. The closer to the center of the tumor an empty space is, the higher the probability a lymphocyte has of migrating there.
+    - *double radiusFraction = 0.75;*
+- Lymphocyte Density Management: 4. The maximum number of lymphocyte neighbors any grid space can have in an adjacent space (including diagonally).
+    - *int maxNeighbors = 4;*
 - **Print Counts:** Disabled. Outputs a CSV file with the following data at each timestep: populations of lymphocytes, triggering cells, all tumor cells, tumor cells previously exposed to radiation, all doomed cells, and doomed cells that are dead from radiation. Additionally, for the entire grid, it records the probabilities of lymphocyte death, tumor cell death from radiation, tumor cell death from immune system activity, and tumor cell division. It also prints the average surviving fraction of tumor cells (including the surviving fraction for radiation-exposed tumor cells during their last moment of radiation), primary immune response, secondary immune response, total immune response, the number of lymphocytes attempting to migrate onto the grid, and immune suppression effect.
     - *public static final boolean printCounts = false*
 - **Print Probabilities:** Disabled. Outputs a CSV file with the following data for every cell on the grid at each timestep: type, color, whether it was previously exposed to radiation, the dose of radiation received that timestep, whether the cell is dead from radiation. It also records the probabilities of death, activation, death from radiation, death from immune system activity, and division. It also prints the number of lymphocyte neighbors (including diagonally).
