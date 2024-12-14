@@ -161,7 +161,8 @@ Contributions are welcome! To contribute:
 4. Open a pull request and describe your changes in detail.
 
 ## References
-[1] Bravo, R. R., Baratchart, E., West, J., Schenck, R. O., Miller, A. K., Gallaher, J., Gatenbee, C. D., Basanta, D., Robertson-Tessi, M., & Anderson, A. R. A. (2020). Hybrid Automata Library: A flexible platform for hybrid modeling with real-time visualization. *PLOS Computational Biology*, 16(3), e1007635. https://doi.org/10.1371/journal.pcbi.1007635  
+[1] Bravo, R. R., Baratchart, E., West, J., Schenck, R. O., Miller, A. K., Gallaher, J., Gatenbee, C. D., Basanta, D., Robertson-Tessi, M., & Anderson, A. R. A. (2020). Hybrid Automata Library: A flexible platform for hybrid modeling with real-time visualization. *PLOS Computational Biology*, 16(3), e1007635. https://doi.org/10.1371/journal.pcbi.1007635
+
 [2] Cho, Y.-B., Yoon, N., Suh, J. H., & Scott, J. G. (2023). Radio-immune response modelling for spatially fractionated radiotherapy. *Physics in Medicine & Biology*, 68(16), 165010. https://doi.org/10.1088/1361-6560/ace819
 
 ## License
