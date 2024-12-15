@@ -1,7 +1,7 @@
 # OnLattice2DGrid
 
 ## Overview
-In the "OnLattice2DCells" folder is the OnLattice2DGrid class, a component of the HALModeling2024 project. This class extends AgentGrid2D<CellFunctions> and serves as the foundation for modeling and simulating tumor and immune cell populations in a 2D grid environment. It supports agent-based simulations by facilitating cell interactions, movement, and other on-lattice dynamics. This Java code uses the Hybrid Automata Library (HAL) [1] to create a spatial agent-based model of an ordinary differential equations model [2] to simulate radio-immune response to spatially fractionated radiotherapy.
+In the "OnLattice2DCells" folder is the `OnLattice2DGrid` class, a component of the HALModeling2024 project. This class extends `AgentGrid2D<CellFunctions>` and serves as the foundation for modeling and simulating tumor and immune cell populations in a 2D grid environment. It supports agent-based simulations by facilitating cell interactions, movement, and other on-lattice dynamics. This Java code uses the Hybrid Automata Library (HAL) [1] to create a spatial agent-based model of an ordinary differential equations model [2] to simulate radio-immune response to spatially fractionated radiotherapy.
 
 Code to develop and analyze statistical graphs for this model can be found at https://github.com/hannahgsimon/HALModeling2024Graphs.
 
@@ -37,45 +37,45 @@ Code to develop and analyze statistical graphs for this model can be found at ht
 - **$d_n$**: Radiation dose  
 
 
+## Radio-Immune Response Spatial Model Agents
+1. $${\color{blue}Lymphocytes} \space {\color{blue}(blue)}$$
+    - Lymphocyte Migration: 𝜌𝑇<sub>𝑛</sub> + 𝜓𝜀𝐴<sub>𝑛</sub>𝑇<sub>𝑛</sub>  
+        Depends on the presence of triggering cells:
+        ```java
+        if (TriggeringCells.count > 0)
+        {
+            new CellFunctions().lymphocyteMigration(model, win);
+        }
+        ```
+    - Survival: 𝑆<sub>𝐿</sub> (1−𝜆<sub>𝐿</sub>)
+    - Removal by Radiation: 1−𝑆<sub>𝐿</sub>
+    - Removal by Exhaustion: 𝑆<sub>𝐿</sub> 𝜆<sub>𝐿</sub>
+2. $${\color{lightgreen}\text{Triggering Cells (immune cells that attract lymphocytes to the tumor site, green)}}$$
+    - Survival: 𝜆<sub>𝐴</sub> (1−𝑆<sub>𝐿</sub>) (1−𝜀) + 𝑆<sub>𝑖</sub> (1−𝜀)
+    - Removal by Radiation: (1−𝑆<sub>𝑖</sub>) (1−𝜆<sub>𝐴</sub>)
+    - Removal by Activation: (1−𝑆<sub>𝑖</sub>) 𝜆<sub>𝐴</sub> 𝜀 + 𝑆<sub>𝑖</sub> 𝜀
+    - Each timestep 1 random triggering cell is removed.
+3. $${\color{red}Tumor\ Cells\ (red)}$$
+    - Survival: 𝑆<sub>𝑇</sub> (1−𝑍<sub>𝑛</sub>) (1−𝜇)
+    - Division: 𝑆<sub>𝑇</sub> (1−𝑍<sub>𝑛</sub>) 𝜇
+    - Doomed by Radiation: 1−𝑆<sub>𝑇</sub>
+    - Doomed by Immune System: 𝑆<sub>𝑇</sub> 𝑍<sub>𝑛</sub>
+4. $${\color{yellow}Doomed} \space {\color{yellow}Cells} \space {\color{yellow}(dead} \space {\color{yellow}tumor} \space {\color{yellow}cells,} \space {\color{yellow}yellow)}$$
+    - Remain on Grid: 1−𝜆<sub>𝐷</sub>
+    - Clearance: 𝜆<sub>𝐷</sub>
+       
 ## Spatial Model Features
-- At each timestep, each agent (cell) can have one of several outcomes, such as death, division, and survival.
-- Agents:
-  1. $${\color{blue}Lymphocytes} \space {\color{blue}(blue)}$$
-       - Lymphocyte Migration: 𝜌𝑇<sub>𝑛</sub> + 𝜓𝜀𝐴<sub>𝑛</sub>𝑇<sub>𝑛</sub>  
-           Depends on the presence of triggering cells:
-            ```java
-            if (TriggeringCells.count > 0)
-            {
-                new CellFunctions().lymphocyteMigration(model, win);
-            }
-            ```
-       - Survival: 𝑆<sub>𝐿</sub> (1−𝜆<sub>𝐿</sub>)
-       - Removal by Radiation: 1−𝑆<sub>𝐿</sub>
-       - Removal by Exhaustion: 𝑆<sub>𝐿</sub> 𝜆<sub>𝐿</sub>
-  2. $${\color{lightgreen}\text{Triggering Cells (immune cells that attract lymphocytes to the tumor site, green)}}$$
-       - Survival: 𝜆<sub>𝐴</sub> (1−𝑆<sub>𝐿</sub>) (1−𝜀) + 𝑆<sub>𝑖</sub> (1−𝜀)
-       - Removal by Radiation: (1−𝑆<sub>𝑖</sub>) (1−𝜆<sub>𝐴</sub>)
-       - Removal by Activation: (1−𝑆<sub>𝑖</sub>) 𝜆<sub>𝐴</sub> 𝜀 + 𝑆<sub>𝑖</sub> 𝜀
-       - Each timestep 1 random triggering cell is removed.
-  3. $${\color{red}Tumor\ Cells\ (red)}$$
-       - Survival: 𝑆<sub>𝑇</sub> (1−𝑍<sub>𝑛</sub>) (1−𝜇)
-       - Division: 𝑆<sub>𝑇</sub> (1−𝑍<sub>𝑛</sub>) 𝜇
-       - Doomed by Radiation: 1−𝑆<sub>𝑇</sub>
-       - Doomed by Immune System: 𝑆<sub>𝑇</sub> 𝑍<sub>𝑛</sub>
-  4. $${\color{yellow}Doomed} \space {\color{yellow}Cells} \space {\color{yellow}(dead} \space {\color{yellow}tumor} \space {\color{yellow}cells,} \space {\color{yellow}yellow)}$$
-       - Remain on Grid: 1−𝜆<sub>𝐷</sub>
-       - Clearance: 𝜆<sub>𝐷</sub>
-- Agent Management: Tracks and manages agents within the 2D grid.
-- Lattice-Based Simulation: Supports cell migration, proliferation, and other on-lattice behaviors.
-- Customizable Interactions: Designed to work with various cell functions by integrating the CellFunctions class.
-- Customizable Parameters: The script allows users to modify key simulation parameters to study different scenarios.
-- Efficient Updates: Optimized for adding and removing multiple elements at each timestep, ensuring scalability for large simulations.
+- Agent-Based Model (ABM): This computer simulation studies the interactions between agents (here, cells), radiation, and time.
+- On-Lattice ABM: Discrete, limited in where the agents can move.
+- 2D Grid: The space with defined dimensions within which agents can move.
+- Stochastic: At each timestep, each agent can have one of several random outcomes with probabilities defined in the `CellFunctions` class, such as death, division, and survival (see agent definitions above).
+- Agent Management: Agents and their attributes can be tracked within the 2D grid.
 
 ## Usage
-Before running the code, you will need to update the file paths if any of the following booleans are set to true: printCounts, printProbabilities, printNeighbors, or writeGIF.
+Before running the code, you will need to update the file paths if any of the following booleans are set to true: `printCounts`, `printProbabilities`, `printNeighbors`, or `writeGIF`.
 
 The simulation starts with the below initial conditions (modifiable in the code). You can update these parameters in the indicated lines of code to fit your specific simulation requirements.
-- **<ins>Figure</ins>:** 2. There are figures 2, 3, 4, 5, and 6, each of which have different parameters as outlined in the FigParameters class.
+- **<ins>Figure</ins>:** 2. There are figures 2, 3, 4, 5, and 6, each of which have different parameters as outlined in the `FigParameters` class.
      ```java
     public static int figure = 2;
      ```
@@ -89,7 +89,7 @@ The simulation starts with the below initial conditions (modifiable in the code)
     int tumorSize = 1;
     int triggeringPopulation = 500;
     ```
-- **<ins>Grid Size</ins>:** 100 x 100 cells
+- **<ins>Grid Size</ins>:** 100 x 100 cells.
     ```java
     int x = 100;
     int y = 100;
@@ -146,7 +146,7 @@ The simulation starts with the below initial conditions (modifiable in the code)
     ```java
     public static boolean writeGIF = false;
     ```
-- **<ins>Immune Suppression Effect Threshold</ins>:** Disabled. When enabled, the immune suppression effect (*𝜅*) dynamically adjusts at each timestep to its threshold value, as defined by equation 5 [2].
+- **<ins>Immune Suppression Effect Threshold</ins>:** Disabled. When enabled, the immune suppression effect (*𝜅*) dynamically adjusts at each timestep to its threshold value, as defined by equation 5 [2]: $e_{\kappa} = \frac{w}{\mu \ T_{n}^{2/3}} - \frac{1}{L_{n} \ T_{n}^{2/3}}$
     ```java
     public static boolean immuneSuppressionEffectThreshold = false;
     ```
