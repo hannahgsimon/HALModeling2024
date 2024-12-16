@@ -80,7 +80,7 @@ Before running the code, you will need to update the file paths if any of the fo
 The simulation starts with the below initial conditions (modifiable in the code). You can update these parameters in the indicated lines of code to fit your specific simulation requirements.
 - **<ins>Figure</ins>:** 3. The figure for which the code will run.
      ```java
-    public static int figure = 2;
+    public static int figure = 3;
      ```
 - **<ins>Scenario Active</ins>:** Disabled. Used for simulation testing of scenarios A, B, C, or D to study birfurcation of a tumor from controlled growth (immune limited) to uncontrolled growth (immune escape). The threshold is determined by the value of immune suppression (*𝜅*).
     ```java
