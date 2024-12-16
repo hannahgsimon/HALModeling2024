@@ -536,7 +536,7 @@ class FigParameters
             decayConstantOfL = 0.335;
             recoveryConstantOfA = 0.039;
             radiationInducedInfiltration = 0; //null
-            immuneSuppressionEffect = 0.031;
+            immuneSuppressionEffect = 0.012;
         }
         else if (figure == 3)
         {
@@ -551,7 +551,7 @@ class FigParameters
             decayConstantOfL = 0.045;
             recoveryConstantOfA = 0.045;
             radiationInducedInfiltration = 0; //null
-            immuneSuppressionEffect = 0.100;
+            immuneSuppressionEffect = 0.51;
         }
         else if (figure == 4)
         {
