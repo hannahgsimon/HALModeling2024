@@ -70,7 +70,7 @@ Code to develop and analyze statistical graphs for this model can be found at ht
 - 2D Grid: The space with defined dimensions within which agents can move.
 - Stochastic: At each timestep, each agent can have one of several random outcomes with probabilities defined in the `CellFunctions` class, such as death, division, and survival (see agent definitions above).
 - Agent Management: Agents and their attributes can be tracked within the 2D grid.
-- Figures: Each figure (2-6) is characterized by different parameters, defined in the `FigParameters` class and originated from Table 1 [2].
+- Figures: Each figure (2-6) is defined by different parameters, which are specified in the `FigParameters` class and derived from Table 1 [2]. The only modification occurs in Figure 3, where the tumor infiltration rate is set to 0.05 instead of 0.5 to improve model performance by preventing excessive lymphocyte migration.
 - Scenarios: The "Simulation GIFs" folder defines and contains GIFs of each scenario (A-E), which is a figure with immune suppression effect (𝜅) at its threshold value.
 
 ## Usage
