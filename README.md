@@ -78,7 +78,7 @@ Code to develop and analyze statistical graphs for this model can be found at ht
 Before running the code, you will need to update the file paths if any of the following booleans are set to true: `printCounts`, `printProbabilities`, `printNeighbors`, or `writeGIF`.
 
 The simulation starts with the below initial conditions (modifiable in the code). You can update these parameters in the indicated lines of code to fit your specific simulation requirements.
-- **<ins>Figure</ins>:** 2. The figure for which the code will run.
+- **<ins>Figure</ins>:** 3. The figure for which the code will run.
      ```java
     public static int figure = 2;
      ```
