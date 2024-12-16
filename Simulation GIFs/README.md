@@ -2,12 +2,13 @@
 - All simulations are in a 100x100 grid unless otherwise specified.
 
 ### Figure 3 Simulations
-- Radiation dose of 10 𝐺𝑦 at 𝑡 = 200
-- For center radiation, target percentage is 0.7
-- For spatial radiation, threshold percentage is 0.8 and radius is 10
+- Radiation dose of 10 𝐺𝑦 at 𝑡 = 200.
+- For center radiation, target percentage is 0.7.
+- For spatial radiation, threshold percentage is 0.8 and radius is 10.
 
 ### Figure 3 Early Model Simulations
 - Early models are from earlier versions of the code.
+- Spatial radiation of 10 𝐺𝑦 is applied at multiple timesteps with threshold percentage of 0.8 and radius of 10.
 
 ### Scenarios Overview
 
