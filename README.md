@@ -71,7 +71,8 @@ Code to develop and analyze statistical graphs for this model can be found at ht
 - Stochastic: At each timestep, each agent can have one of several random outcomes with probabilities defined in the `CellFunctions` class, such as death, division, and survival (see agent definitions above).
 - Agent Management: Agents and their attributes can be tracked within the 2D grid.
 - Figures: Each figure (2-6) is defined by different parameters, which are specified in the `FigParameters` class and derived from Table 1 [2]. The only modification occurs in Figure 3, where the tumor infiltration rate is set to 0.05 instead of 0.5 to improve model performance by preventing excessive lymphocyte migration.
-- Scenarios: The "Simulation GIFs" folder defines and contains GIFs of each scenario (A-E), which is a figure with immune suppression effect (𝜅) at its threshold value.
+- Scenarios: See the "Simulation GIFs" folder for definitions of each scenario (A-E), which is a figure with immune suppression effect (𝜅) at a threshold value.
+- Sample Simulations: The "Simulation GIFs" folder defines and contains GIFs of figure 3 with different radiation approaches, and of each scenario (A-E). These were generated with `writeGIF = true`.
 
 ## Usage
 Before running the code, you will need to update the file paths if any of the following booleans are set to true: `printCounts`, `printProbabilities`, `printNeighbors`, or `writeGIF`.
