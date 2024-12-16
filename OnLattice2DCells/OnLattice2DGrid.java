@@ -677,7 +677,7 @@ public class OnLattice2DGrid extends AgentGrid2D<CellFunctions>
     Rand rng = new Rand();
     int[] divHood = Util.VonNeumannHood(false);
 
-    public static int figure = 2;
+    public static int figure = 3;
     public static int baseRadiationDose = 0, currentRadiationDose = baseRadiationDose, appliedRadiationDose = 10;
     public static List<Integer> radiationTimesteps = List.of(200);
     public static boolean totalRadiation = false, centerRadiation = true, spatialRadiation = false;
