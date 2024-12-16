@@ -1,7 +1,7 @@
 # OnLattice2DGrid
 
 ## Overview
-In the "OnLattice2DCells" folder is the OnLattice2DGrid class, a component of the HALModeling2024 project. This class extends AgentGrid2D<CellFunctions> and serves as the foundation for modeling and simulating tumor and immune cell populations in a 2D grid environment. It supports agent-based simulations by facilitating cell interactions, movement, and other on-lattice dynamics. This Java code uses the Hybrid Automata Library (HAL) [1] to create a spatial agent-based model of an ordinary differential equations model [2] to simulate radio-immune response to spatially fractionated radiotherapy.
+In the "OnLattice2DCells" folder is the `OnLattice2DGrid` class, a component of the HALModeling2024 project. This class extends `AgentGrid2D<CellFunctions>` and serves as the foundation for modeling and simulating tumor and immune cell populations in a 2D grid environment. It supports agent-based simulations by facilitating cell interactions, movement, and other on-lattice dynamics. This Java code uses the Hybrid Automata Library (HAL) [1] to create a spatial agent-based model of an ordinary differential equations model [2] to simulate radio-immune response to spatially fractionated radiotherapy.
 
 Code to develop and analyze statistical graphs for this model can be found at https://github.com/hannahgsimon/HALModeling2024Graphs.
 
@@ -26,92 +26,132 @@ Code to develop and analyze statistical graphs for this model can be found at ht
 - Doomed Cells: 𝐷<sub>𝑛+1</sub> = (1−𝜆<sub>𝐷</sub>) 𝐷<sub>𝑛</sub> + (1−𝑆<sub>𝑇</sub>) 𝑇<sub>𝑛</sub> 𝑒<sup>𝜇</sup> + 𝑆<sub>𝑇</sub> 𝑇<sub>𝑛</sub> 𝑒<sup>𝜇</sup> (1−𝑒<sup>−𝑍<sub>𝑛</sub></sup>)
 - Surviving Fraction: 𝑆 = 𝑒<sup>(−𝛼𝑑<sub>𝑛</sub>−𝛽𝑑<sub>𝑛</sub><sup>2</sup>)</sup>
 
-Key:
-| Symbol                      | Description                        |
-|-----------------------------|------------------------------------|
-| $(\alpha, \beta)_{T,L}$      | Radiation sensitivity              |
-| $\mu$                        | Tumor growth rate                  |
-| $\rho$                       | Tumor infiltration rate            |
-| $w$                          | Rate of cell killing               |
-| $\lambda_{D,L}$            | Decay constant                     |
-| $\psi$                       | Radiation induced infiltration     |
-| $\kappa$                     | Immune suppression effect          |
-| $d_n$                        | Radiation dose                     |
+### Key
+- **$(\alpha, \beta)_{T,L}$**: Radiation sensitivity  
+- **$\mu$**: Tumor growth rate  
+- **$\rho$**: Tumor infiltration rate  
+- **$w$**: Rate of cell killing  
+- **$\lambda_{D,L}$**: Decay constant  
+- **$\psi$**: Radiation-induced infiltration  
+- **$\kappa$**: Immune suppression effect  
+- **$d_n$**: Radiation dose  
 
+
+## Radio-Immune Response Spatial Model Agents
+1. $${\color{blue}Lymphocytes} \space {\color{blue}(blue)}$$
+    - Lymphocyte Migration: 𝜌𝑇<sub>𝑛</sub> + 𝜓𝜀𝐴<sub>𝑛</sub>𝑇<sub>𝑛</sub>  
+        Depends on the presence of triggering cells:
+        ```java
+        if (TriggeringCells.count > 0)
+        {
+            new CellFunctions().lymphocyteMigration(model, win);
+        }
+        ```
+    - Survival: 𝑆<sub>𝐿</sub> (1−𝜆<sub>𝐿</sub>)
+    - Removal by Radiation: 1−𝑆<sub>𝐿</sub>
+    - Removal by Exhaustion: 𝑆<sub>𝐿</sub> 𝜆<sub>𝐿</sub>
+2. $${\color{lightgreen}\text{Triggering Cells (immune cells that attract lymphocytes to the tumor site, green)}}$$
+    - Survival: 𝜆<sub>𝐴</sub> (1−𝑆<sub>𝐿</sub>) (1−𝜀) + 𝑆<sub>𝑖</sub> (1−𝜀)
+    - Removal by Radiation: (1−𝑆<sub>𝑖</sub>) (1−𝜆<sub>𝐴</sub>)
+    - Removal by Activation: (1−𝑆<sub>𝑖</sub>) 𝜆<sub>𝐴</sub> 𝜀 + 𝑆<sub>𝑖</sub> 𝜀
+    - Each timestep 1 random triggering cell is removed.
+3. $${\color{red}Tumor\ Cells\ (red)}$$
+    - Survival: 𝑆<sub>𝑇</sub> (1−𝑍<sub>𝑛</sub>) (1−𝜇)
+    - Division: 𝑆<sub>𝑇</sub> (1−𝑍<sub>𝑛</sub>) 𝜇
+    - Doomed by Radiation: 1−𝑆<sub>𝑇</sub>
+    - Doomed by Immune System: 𝑆<sub>𝑇</sub> 𝑍<sub>𝑛</sub>
+4. $${\color{yellow}Doomed} \space {\color{yellow}Cells} \space {\color{yellow}(dead} \space {\color{yellow}tumor} \space {\color{yellow}cells,} \space {\color{yellow}yellow)}$$
+    - Remain on Grid: 1−𝜆<sub>𝐷</sub>
+    - Clearance: 𝜆<sub>𝐷</sub>
+       
 ## Spatial Model Features
-- At each timestep, each agent (cell) can have one of many outcomes, such as death, division, and survival.
-- Agents:
-  1. $${\color{blue}Lymphocytes} \space {\color{blue}(blue)}$$
-       - Lymphocyte Migration: 𝜌𝑇<sub>𝑛</sub> + 𝜓𝜀𝐴<sub>𝑛</sub>𝑇<sub>𝑛</sub>
-           - Depends on the presence of triggering cells:
-             *if (TriggeringCells.count > 0)
-            {
-                new CellFunctions().lymphocyteMigration(model, win);
-            }*
-       - Survival: 𝑆<sub>𝐿</sub> (1−𝜆<sub>𝐿</sub>)
-       - Removal by Radiation: 1−𝑆<sub>𝐿</sub>
-       - Removal by Exhaustion: 𝑆<sub>𝐿</sub> 𝜆<sub>𝐿</sub>
-  2. $${\color{lightgreen}\text{Triggering Cells (immune cells that attract lymphocytes to the tumor site, green)}}$$
-       - Survival: 𝜆<sub>𝐴</sub> (1−𝑆<sub>𝐿</sub>) (1−𝜀) + 𝑆<sub>𝑖</sub> (1−𝜀)
-       - Removal by Radiation: (1−𝑆<sub>𝑖</sub>) (1−𝜆<sub>𝐴</sub>)
-       - Removal by Activation: (1−𝑆<sub>𝑖</sub>) 𝜆<sub>𝐴</sub> 𝜀 + 𝑆<sub>𝑖</sub> 𝜀
-       - Each timestep 1 random triggering cell is removed.
-  3. $${\color{red}Tumor\ Cells\ (red)}$$
-       - Survival: 𝑆<sub>𝑇</sub> (1−𝑍<sub>𝑛</sub>) (1−𝜇)
-       - Division: 𝑆<sub>𝑇</sub> (1−𝑍<sub>𝑛</sub>) 𝜇
-       - Doomed by Radiation: 1−𝑆<sub>𝑇</sub>
-       - Doomed by Immune System: 𝑆<sub>𝑇</sub> 𝑍<sub>𝑛</sub>
-  4. $${\color{yellow}Doomed} \space {\color{yellow}Cells} \space {\color{yellow}(dead} \space {\color{yellow}tumor} \space {\color{yellow}cells,} \space {\color{yellow}yellow)}$$
-       - Remain on Grid: 1−𝜆<sub>𝐷</sub>
-       - Clearance: 𝜆<sub>𝐷</sub>
-- Agent Management: Tracks and manages agents within the 2D grid.
-- Lattice-Based Simulation: Supports cell migration, proliferation, and other on-lattice behaviors.
-- Customizable Interactions: Designed to work with various cell functions by integrating the CellFunctions class.
-- Efficient Updates: Optimized for adding and removing multiple elements at each timestep, ensuring scalability for large simulations.
+- Agent-Based Model (ABM): This computer simulation studies the interactions between agents (here, cells), radiation, and time.
+- On-Lattice ABM: Discrete, limited in where the agents can move.
+- 2D Grid: The space with defined dimensions within which agents can move.
+- Stochastic: At each timestep, each agent can have one of several random outcomes with probabilities defined in the `CellFunctions` class, such as death, division, and survival (see agent definitions above).
+- Agent Management: Agents and their attributes can be tracked within the 2D grid.
+- Figures: Each figure (2-6) is characterized by different parameters, defined in the `FigParameters` class and originated from Table 1 [2].
+- Scenarios: The "Simulation GIFs" folder defines and contains GIFs of each scenario (A-E), which is a figure with immune suppression effect (𝜅) at its threshold value.
 
 ## Usage
-Before running the code, you will need to update the file paths if any of the following booleans are set to true: printCounts, printProbabilities, printNeighbors, or writeGIF.
+Before running the code, you will need to update the file paths if any of the following booleans are set to true: `printCounts`, `printProbabilities`, `printNeighbors`, or `writeGIF`.
 
 The simulation starts with the below initial conditions (modifiable in the code). You can update these parameters in the indicated lines of code to fit your specific simulation requirements.
-- **Figure:** 2. There are figures 2, 3, 4, 5, and 6, each of which have different parameters as outlined in the FigParameters class.
-    - *public static int figure = 2;*
-- **Scenario Active:** Disabled. Used for simulation testing of scenarios A, B, C, or D to study birfurcation of a tumor from controlled growth (immune limited) to uncontrolled growth (immune escape). The threshold is determined by the value of immune suppression (*𝜅*). The "Simulation GIFs" folder contains GIFs illustrating these scenarios.
-    - *public static boolean scenarioActive = false; public static char scenario = 'A';*
-- **Initial Cell Populations at Timestep 0:** 0 lymphocytes, 1 tumor cell, & 500 triggering cells. The tumor cells are initialized at the center of the grid, while all other cells are randomly distributed in the remaining spaces.
-    - *int lymphocitePopulation = 0;
-        int tumorSize = 1;
-        int triggeringPopulation = 500;*
-- **Grid Size:** 100 x 100 cells
-    - *int x = 100;
-        int y = 100;*
-- **Timesteps:** 1000. The total number of timesteps for which the simulation runs.
-    - *int timesteps = 1000;*
-- **Total Radiation:** Disabled. Radiates the entire grid.
-    - *public static boolean totalRadiation = false*
-- **Center Radiation:** Enabled. Calculates the tumor's center at that timestep and radiates a specified percentage (modifiable via *public static double targetPercentage = 0.7;*) of the tumor in a circular area centered on that point.
-    - *centerRadiation = true*
-- **Spatial Radiation:** Disabled. Calculates the tumor's center at the current timestep and defines a circular area around it with a specified radius (modifiable via *public static int radius = 10;*). Additional circular areas are calculated to fit within the tumor, maintaining a 2-cell gap between adjacent circles and a 1-cell buffer between each circle and the tumor's edge. Each circle is radiated if the percentage of tumor and doomed cells within it meets or exceeds the specified threshold (modifiable via *public static double thresholdPercentage = 0.8;*).
-    - *spatialRadiation = false*
-- **Base Radiation Dose:** *0 Gy*. The default radiation dose applied to the entire grid during each timestep when radiation is turned off.
-    - *public static int baseRadiationDose = 0*
-- **Applied Radiation Dose:** *10 Gy*. The radiation dose delivered using the specified method (total, center, or spatial) during active radiation timesteps.
-    - *appliedRadiationDose = 10*
-- **Radiation Timesteps:** 200. The timesteps during which radiation is applied using the specified method (total, center, or spatial).
-    - *public static List<Integer> radiationTimesteps = List.of(200);*
-- Neighborhood Radius for Lymphocyte Migration: 0.75. The percentage of the minimum grid dimension within which lymphocytes can migrate. The closer to the center of the tumor an empty space is, the higher the probability a lymphocyte has of migrating there.
-    - *double radiusFraction = 0.75;*
-- Lymphocyte Density Management: 4. The maximum number of lymphocyte neighbors any grid space can have in an adjacent space (including diagonally).
-    - *int maxNeighbors = 4;*
-- **Print Counts:** Disabled. Outputs a CSV file with the following data at each timestep: populations of lymphocytes, triggering cells, all tumor cells, tumor cells previously exposed to radiation, all doomed cells, and doomed cells that are dead from radiation. Additionally, for the entire grid, it records the probabilities of lymphocyte death, tumor cell death from radiation, tumor cell death from immune system activity, and tumor cell division. It also prints the average surviving fraction of tumor cells (including the surviving fraction for radiation-exposed tumor cells during their last moment of radiation), primary immune response, secondary immune response, total immune response, the number of lymphocytes attempting to migrate onto the grid, and immune suppression effect.
-    - *public static final boolean printCounts = false*
-- **Print Probabilities:** Disabled. Outputs a CSV file with the following data for every cell on the grid at each timestep: type, color, whether it was previously exposed to radiation, the dose of radiation received that timestep, whether the cell is dead from radiation. It also records the probabilities of death, activation, death from radiation, death from immune system activity, and division. It also prints the number of lymphocyte neighbors (including diagonally).
-    - *printProbabilities = false*
-- **Print Neighbors:** Disabled. Outputs a CSV file with the number of lymphocyte neighbors (including diagonally) at each timestep, for both every cell on the grid and empty grid spaces.
-    - *printNeighbors = false*
-- **Write GIF:** Disabled. Outputs a GIF file of the simulation.
-    - *public static boolean writeGIF = false;*
-- **Immune Suppression Effect Threshold:** Disabled. When enabled, the immune suppression effect (*𝜅*) dynamically adjusts at each timestep to its threshold value, as defined by equation 5 [2].
-    - *public static boolean immuneSuppressionEffectThreshold = false;*
+- **<ins>Figure</ins>:** 2. The figure for which the code will run.
+     ```java
+    public static int figure = 2;
+     ```
+- **<ins>Scenario Active</ins>:** Disabled. Used for simulation testing of scenarios A, B, C, or D to study birfurcation of a tumor from controlled growth (immune limited) to uncontrolled growth (immune escape). The threshold is determined by the value of immune suppression (*𝜅*).
+    ```java
+    public static boolean scenarioActive = false; public static char scenario = 'A';
+    ```
+- **<ins>Initial Cell Populations at Timestep 0</ins>:** 0 lymphocytes, 1 tumor cell, & 500 triggering cells. The tumor cells are initialized at the center of the grid, while all other cells are randomly distributed in the remaining spaces.
+    ```java
+    int lymphocitePopulation = 0;
+    int tumorSize = 1;
+    int triggeringPopulation = 500;
+    ```
+- **<ins>Grid Size</ins>:** 100 x 100 cells.
+    ```java
+    int x = 100;
+    int y = 100;
+    ```
+- **<ins>Timesteps</ins>:** 1000. The total number of timesteps for which the simulation runs.
+    ```java
+    int timesteps = 1000;
+    ```
+- **<ins>Total Radiation</ins>:** Disabled. Radiates the entire grid.
+    ```java
+    public static boolean totalRadiation = false
+    ```
+- **<ins>Center Radiation</ins>:** Enabled. Calculates the tumor's center at that timestep and radiates a specified percentage (modifiable via *public static double targetPercentage = 0.7;*) of the tumor in a circular area centered on that point.
+    ```java
+    centerRadiation = true
+    ```
+- **<ins>Spatial Radiation</ins>:** Disabled. Calculates the tumor's center at the current timestep and defines a circular area around it with a specified radius (modifiable via *public static int radius = 10;*). Additional circular areas are calculated to fit within the tumor, maintaining a 2-cell gap between adjacent circles and a 1-cell buffer between each circle and the tumor's edge. Each circle is radiated if the percentage of tumor and doomed cells within it meets or exceeds the specified threshold (modifiable via *public static double thresholdPercentage = 0.8;*).
+    ```java
+    spatialRadiation = false
+    ```
+- **<ins>Base Radiation Dose</ins>:** *0 Gy*. The default radiation dose applied to the entire grid during each timestep when radiation is turned off.
+    ```java
+    public static int baseRadiationDose = 0
+    ```
+- **<ins>Applied Radiation Dose</ins>:** *10 Gy*. The radiation dose delivered using the specified method (total, center, or spatial) during active radiation timesteps.
+    ```java
+    appliedRadiationDose = 10
+    ```
+- **<ins>Radiation Timesteps</ins>:** 200. The timesteps during which radiation is applied using the specified method (total, center, or spatial).
+    ```java
+    public static List<Integer> radiationTimesteps = List.of(200);
+    ```
+- **<ins>Neighborhood Radius for Lymphocyte Migration</ins>:** 0.75. The percentage of the minimum grid dimension within which lymphocytes can migrate. The closer to the center of the tumor an empty space is, the higher the probability a lymphocyte has of migrating there.
+    ```java
+    double radiusFraction = 0.75;
+    ```
+- **<ins>Lymphocyte Density Management</ins>:** 4. The maximum number of lymphocyte neighbors any grid space can have in an adjacent space (including diagonally).
+    ```java
+    int maxNeighbors = 4;
+    ```
+- **<ins>Print Counts</ins>:** Disabled. Outputs a CSV file with the following data at each timestep: populations of lymphocytes, triggering cells, all tumor cells, tumor cells previously exposed to radiation, all doomed cells, and doomed cells that are dead from radiation. Additionally, for the entire grid, it records the probabilities of lymphocyte death, tumor cell death from radiation, tumor cell death from immune system activity, and tumor cell division. It also prints the average surviving fraction of tumor cells (including the surviving fraction for radiation-exposed tumor cells during their last moment of radiation), primary immune response, secondary immune response, total immune response, the number of lymphocytes attempting to migrate onto the grid, and immune suppression effect.
+    ```java
+    public static final boolean printCounts = false
+    ```
+- **<ins>Print Probabilities</ins>:** Disabled. Outputs a CSV file with the following data for every cell on the grid at each timestep: type, color, whether it was previously exposed to radiation, the dose of radiation received that timestep, whether the cell is dead from radiation. It also records the probabilities of death, activation, death from radiation, death from immune system activity, and division. It also prints the number of lymphocyte neighbors (including diagonally).
+    ```java
+    printProbabilities = false
+    ```
+- **<ins>Print Neighbors</ins>:** Disabled. Outputs a CSV file with the number of lymphocyte neighbors (including diagonally) at each timestep, for both every cell on the grid and empty grid spaces.
+    ```java
+    printNeighbors = false
+    ```
+- **<ins>Write GIF</ins>:** Disabled. Outputs a GIF file of the simulation.
+    ```java
+    public static boolean writeGIF = false;
+    ```
+- **<ins>Immune Suppression Effect Threshold</ins>:** Disabled. When enabled, the immune suppression effect (*𝜅*) dynamically adjusts at each timestep to its threshold value, as defined by equation 5 [2]: $e_{\kappa} = \frac{w}{\mu \ T_{n}^{2/3}} - \frac{1}{L_{n} \ T_{n}^{2/3}}$
+    ```java
+    public static boolean immuneSuppressionEffectThreshold = false;
+    ```
 
 ## Contributing
 Contributions are welcome! To contribute:
